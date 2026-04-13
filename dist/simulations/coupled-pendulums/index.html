@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coupled Pendulums</title>
+    
+    <!-- Basic styling -->
+    <style>
+        body { 
+          margin: 0; 
+          overflow: hidden; 
+          color: white;
+          font-family: sans-serif;
+        }
+        canvas { display: block; }
+        #info {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            font-size: 20px;
+        }
+        .slider-center {
+          position: absolute;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 1;
+          text-align: center;
+        }
+
+        .slider-left {
+          position: absolute;
+          left: 10px;
+          z-index: 1;
+          text-align: left;
+        }
+    </style>
+    
+    <!-- Import map shim for browsers without native support -->
+    <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+    
+    <!-- Define all external dependencies in the import map -->
+
+    <!-- "lodash": "https://cdn.jsdelivr.net/npm/lodash@4.17.21/+esm",
+    "gsap": "https://cdn.jsdelivr.net/npm/gsap@3.12.4/+esm" -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="info">Coupled Pendulums
+      <div style="padding-top: 20px; font-size: 14px; color: #878787;">Click any pendulum and drag to move it</div>
+    </div>
+    <!-- <div class="slider-center" style="top: 60px;">
+      <label for="slider">
+        <div>Rotation Angle:</div>
+        <input type="range" id="sliderAngle" min="-6.28" max="6.28" value="0" step=".01" style="width: 50vw;">
+      </label>
+    </div> -->
+    <div class="range-group slider-left" style="top: 100px;">
+      <label for="slider">
+        <div>Spring Constant: <span>0</span></div>
+        <input type="range" id="sliderSpring" min="1" max="10000" value="1" step="1" style="width: 160px;">
+      </label>
+    </div>
+    <div class="range-group slider-left" style="top: 140px;">
+      <label for="slider">
+        <div>Damping: <span>0</span></div>
+        <input type="range" id="sliderDamping" min="0" max="10" value="0" step=".01" style="width: 160px;">
+      </label>
+    </div>
+    
+    <script type="module">
+        // Import dependencies
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+      
+        
+        // 1. Create scene, camera, and renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+        
+        // 2. Add camera controls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        camera.position.set(2, 1, 5);
+        controls.update();
+        
+        // 3. Add lights
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(1, 1, 1);
+        scene.add(directionalLight);
+        
+        // Simulation variables
+        const pendulumCount = 200;
+        const pendulumSpacing = .1;
+        const pendulumLength = 1;
+        const damping = 0.1;
+        const dt = .01;
+
+        let pendulums = [];
+        let angles = new Array(pendulumCount).fill(0);
+        let angularVelocities = new Array(pendulumCount).fill(0);
+        let torques = new Array(pendulumCount).fill(0);
+
+        let raycaster = new THREE.Raycaster();
+        let mouse = new THREE.Vector2();
+        let lastMouse = new THREE.Vector2();
+        let highlightedMesh = null;
+        let selectedMesh = null;
+
+
+        // const sliderAngle = document.getElementById('sliderAngle');
+        // sliderAngle.value = 0;
+        const sliderSpring = document.getElementById('sliderSpring');
+        sliderSpring.value = 2000;
+        const sliderDamping = document.getElementById('sliderDamping');
+        sliderDamping.value = .1;
+        
+
+        // Create pendulums
+        const massWidth = .06;
+        for (let i = 0; i < pendulumCount; i++) {
+            const pendulum = new THREE.Group();
+            // const mass = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), new THREE.MeshStandardMaterial({ color: 0x00ff00 }));
+            const mass = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, massWidth, 32), new THREE.MeshStandardMaterial({ color: 0x00ff00 }));
+            const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, pendulumLength, 32), new THREE.MeshStandardMaterial({ color: 0x878787 }));
+            rod.position.y = -pendulumLength / 2;
+            mass.position.y = -pendulumLength;
+            mass.rotation.x = Math.PI / 2;
+            mass.userData.selectable = true;
+            mass.userData.index = i;
+            mass.userData.targetAngle = 0;
+            pendulum.add(rod);
+            pendulum.add(mass);
+            pendulum.position.z = -i * pendulumSpacing + 3;
+            pendulums.push(pendulum);
+            scene.add(pendulum);
+        }
+
+        // Animate the scene, this is the main update loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            let springConstant = sliderSpring.value;
+            let damping = sliderDamping.value;
+
+            // Apply torques
+            // I did not specify that there was gravity so no need to include it here, but it would be trivial to add
+            for (let i = 1; i < pendulumCount; i++) {
+              // Calculate torque between pendulums
+              let deltaAngle = angles[i] - angles[i - 1];
+              let deltaAngVel = angularVelocities[i] - angularVelocities[i - 1];
+              let torque = springConstant * deltaAngle + damping * deltaAngVel;
+              // We can assume all pendulums have the same rotational inertia = 1
+              torques[i] -= torque;
+              torques[i-1] += torque;
+            }
+
+            // Update angles with simple euler integration
+            for (let i = 0; i < pendulumCount; i++) {
+              if (selectedMesh && selectedMesh.userData.index === i) {
+                angularVelocities[i] = 0;
+                angles[i] = lerp(angles[i], selectedMesh.userData.targetAngle, .1);
+              } else if (i != 0){
+                angularVelocities[i] += torques[i] * dt;
+                angles[i] += angularVelocities[i] * dt;
+              }
+              torques[i] = 0;
+              pendulums[i].rotation.z = angles[i];
+            }
+            // Set the angle of the first to the user's targeted angle
+            // angles[0] = sliderAngle.value;
+            // pendulums[0].rotation.z = angles[0]
+            // angularVelocities[0] = 0;
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function resetPendulums()
+        {
+          for (let i = 0; i < pendulumCount; i++) {
+            angularVelocities[i] = 0;
+            angles[i] = 0;
+            torques[i] = 0;
+            pendulums[i].rotation.z = 0;
+          }
+          // sliderAngle.value = 0;
+        }
+
+        document.addEventListener('keydown', function(event) {
+          if (event.key === 'r') {
+            resetPendulums();
+          }
+        });
+        
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        function lerp(start, end, t) {
+          return (1 - t) * start + t * end
+        }
+        
+
+        document.querySelectorAll('.range-group').forEach(group => {
+          const input = group.querySelector('input[type="range"]');
+          const span = group.querySelector('span');
+          // Set initial value
+          span.textContent = input.value;
+          // Update span on input change
+          input.addEventListener('input', () => {
+            span.textContent = input.value;
+          });
+        });
+        
+        function intersectsFiltered(mouse) {
+            raycaster.setFromCamera(mouse, camera);
+            return raycaster.intersectObjects(scene.children, true).filter(intersect => intersect.object.userData.selectable);
+        }
+
+        function onMouseMove(event) {
+            lastMouse = mouse.clone();
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            const intersects = intersectsFiltered(mouse);
+
+            if (highlightedMesh) {
+                // Reset previous highlight
+                highlightedMesh.material.emissive.setHex(0x000000);
+                highlightedMesh = null;
+            }
+
+            if (intersects.length > 0) {
+                highlightedMesh = intersects[0].object;
+                highlightedMesh.material.emissive.setHex(0x333333); // Highlight color
+            }
+        }
+        let isMouseDown = false;
+
+        window.addEventListener('mousedown', (event) => {
+          isMouseDown = true;
+
+          const intersects = intersectsFiltered(mouse);
+
+          if (intersects.length > 0) {
+              selectedMesh = intersects[0].object;
+              selectedMesh.userData.drag = 0;
+              selectedMesh.userData.targetAngle = angles[selectedMesh.userData.index];
+              controls.enabled = false;
+              console.log('Selected:', selectedMesh);
+              selectedMesh.material.color.setHex(0xff0000); // Change color on selection
+          }
+        });
+
+        window.addEventListener('mouseup', (event) => {
+          isMouseDown = false;
+          controls.enabled = true;
+          if (selectedMesh) {
+            selectedMesh.material.color.setHex(0x00ff00); // Change color back on deselection
+            selectedMesh = null;
+          }
+        });
+
+        function closestAngle(baseAngle, targetAngle) {
+          const TWO_PI = Math.PI * 2;
+          // Step 1: Bring baseAngle into same "rotation range" as targetAngle
+          let k = Math.round((targetAngle - baseAngle) / TWO_PI);
+          return baseAngle + k * TWO_PI;
+        }
+
+        window.addEventListener('mousemove', (event) => {
+          if (isMouseDown) {
+            // Handle dragging here
+            if (selectedMesh) {
+              let i = selectedMesh.userData.index;
+              const massWorldPos = new THREE.Vector3();
+              selectedMesh.getWorldPosition(massWorldPos);
+              const anchorWorldPos = new THREE.Vector3(0, 0, massWorldPos.z);
+
+              raycaster.setFromCamera(mouse, camera);
+              const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -massWorldPos.z);
+
+              // Find intersection of ray with the plane
+              const intersectionPoint = new THREE.Vector3();
+              raycaster.ray.intersectPlane(plane, intersectionPoint);
+
+              if (intersectionPoint) {
+                console.log('World-space point on plane:', intersectionPoint);
+                const angle = Math.atan2(intersectionPoint.x, -intersectionPoint.y);
+                console.log('Angle', angle);
+                selectedMesh.userData.targetAngle = closestAngle(angle, angles[selectedMesh.userData.index]);
+              }
+              // const anchorScreenPos = anchorWorldPos.project(camera);
+              let drag = (mouse.clone().sub(lastMouse)).multiplyScalar(8);
+            } 
+          }
+        });
+
+        window.addEventListener('mousemove', onMouseMove);
+        // window.addEventListener('click', onClick);
+
+        animate();
+    </script>
+</body>
+</html>

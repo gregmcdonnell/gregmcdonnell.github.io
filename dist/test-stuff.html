@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Navbar with Hamburger</title>
+    <style>
+        /* Basic styles for the page */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Navigation bar links */
+        .nav-links {
+            display: flex;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            background-color: #333;
+            justify-content: center;
+        }
+
+        .nav-links li {
+            margin: 0 20px;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: white;
+            font-size: 18px;
+            padding: 10px;
+            display: block;
+        }
+
+        /* Hamburger icon */
+        .hamburger {
+            display: none;
+            cursor: pointer;
+            flex-direction: column;
+            justify-content: space-around;
+            align-items: center;
+            width: 30px;
+            height: 25px;
+            background: transparent;
+            border: none;
+        }
+
+        .hamburger .bar {
+            width: 25px;
+            height: 4px;
+            background-color: black;
+            border-radius: 5px;
+            transform-origin: left;
+            transition: transform .3s ease-in-out, opacity .3s;
+        }
+
+        .hamburger.open .bar.top {
+            transform: rotate(45deg);
+        }
+
+        .hamburger.open .bar.bottom {
+            transform: rotate(-45deg);
+        }
+
+        .hamburger.open .bar.middle {
+            opacity: 0;
+        }
+
+        /* Mobile view */
+        @media (max-width: 768px) {
+
+            /* Hide nav links on mobile */
+            .nav-links {
+                /* Initially hidden */
+                visibility: hidden;
+                flex-direction: column;
+                position: absolute;
+                top: 60px;
+                left: 0;
+                right: 0;
+                background-color: #333;
+                z-index: 10;
+                opacity: 0;
+                transition: opacity 0.3s ease-in-out, visibility 0.3s;
+            }
+
+            .nav-links.show {
+                /* display: flex; */
+                visibility: visible;
+                opacity: 1;
+            }
+
+            /* Darken the background when the menu is open */
+            .overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: rgba(0, 0, 0, 0.7);
+                z-index: 5;
+                /* display: none; */
+                visibility: hidden;
+                opacity: 0;
+                transition: opacity 0.3s ease-in-out, visibility 0.3s;
+            }
+
+            .overlay.show {
+                /* display: block; */
+                visibility: visible;
+                opacity: 1;
+                /* transition: opacity 0.3s ease-in-out; */
+                /* Show overlay when menu is open */
+            }
+
+            /* Display hamburger icon on mobile */
+            .hamburger {
+                display: flex;
+                position: absolute;
+                z-index: 10;
+                top: 20px;
+                right: 20px;
+            }
+
+        }
+
+        #menu #list {
+            /* max-height: 0; */
+            opacity: 0;
+            transition: opacity 0.3s ease-out;
+            /* transition: max-height 0.3s ease-out, transform 0.3s ease-out; */
+            overflow: hidden;
+            background: #d5d5d5;
+        }
+
+        #menu:hover #list {
+            /* max-height: 500px; */
+            opacity: 1;
+            transition: opacity 0.3s ease-in;
+            /* transition: max-height 0.3s ease-in, transform 0.3s ease-in; */
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Overlay (dark background) -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Navigation Bar -->
+    <nav>
+        <!-- Hamburger Icon (only visible on mobile) -->
+        <div class="hamburger" id="hamburger-icon">
+            <span class="bar top"></span>
+            <span class="bar middle"></span>
+            <span class="bar bottom"></span>
+        </div>
+
+        <!-- Navigation Links -->
+        <ul class="nav-links" id="nav-links">
+            <li><a href="/projects" class="active">Projects</a></li>
+            <li><a href="/simulations">Simulations</a></li>
+            <li><a href="/gallery">Gallery</a></li>
+            <li><a href="/notes">Notes</a></li>
+        </ul>
+    </nav>
+
+
+    <!-- JavaScript to handle menu toggle -->
+    <script>
+        // Get elements
+        const hamburgerIcon = document.getElementById('hamburger-icon');
+        const navLinks = document.getElementById('nav-links');
+        const overlay = document.getElementById('overlay');
+
+        // Toggle menu visibility and overlay when hamburger is clicked
+        hamburgerIcon.addEventListener('click', () => {
+            navLinks.classList.toggle('show'); // Toggle slide-down/up effect
+            overlay.classList.toggle('show'); // Toggle dark background overlay
+            hamburgerIcon.classList.toggle('open');
+        });
+
+        // Close menu and overlay when clicking the overlay
+        overlay.addEventListener('click', () => {
+            navLinks.classList.remove('show');
+            overlay.classList.remove('show');
+            hamburgerIcon.classList.remove('open');
+        });
+    </script>
+
+</body>
+
+</html>

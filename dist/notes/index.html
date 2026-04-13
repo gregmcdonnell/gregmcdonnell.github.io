@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notes — Your Name</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav class="site-nav">
+    <a class="nav-home" href="/">Greg McDonnell</a>
+    <ul class="nav-links">
+      <li><a href="/projects">Projects</a></li>
+      <li><a href="/simulations">Simulations</a></li>
+      <li><a href="/gallery">Gallery</a></li>
+      <li><a href="/notes" class="active">Notes</a></li>
+    </ul>
+  </nav>
+
+  <!-- Page header -->
+  <div class="page-header">
+    <p class="page-label">Writing</p>
+    <h1>Notes & Exploration</h1>
+    <p>Writeups on techniques, math, and ideas that don't fit neatly into a project — things I worked through and wanted to document.</p>
+  </div>
+
+  <!-- Filter + list -->
+  <main>
+    <div>Page under construction</div>
+    <!-- <div class="filter-nav" id="filter-nav">
+      <button class="filter-btn active" data-filter="all">All</button>
+    </div>
+    <div class="project-list" id="notes-list">
+      <p class="loading-msg">Loading…</p>
+    </div> -->
+  </main>
+
+  <!-- Footer -->
+
+  <footer class="site-footer">
+      <span>© 2026 Gregory McDonnell</span>
+      <div class="footer-links">
+          <a href="https://github.com/gregmcdonnell/gregmcdonnell.github.io.git" target="_blank">GitHub</a>
+          <a href="www.linkedin.com/in/greg-mcdonnell-a62398174" target="_blank">LinkedIn</a>
+      </div>
+  </footer>
+
+  <script>
+    let allNotes = [];
+
+    async function init() {
+      const list = document.getElementById('notes-list');
+      try {
+        const res = await fetch('/data/notes.json');
+        allNotes = await res.json();
+
+        // Build tag buttons
+        const tags = [...new Set(allNotes.flatMap(n => n.tags || []))].sort();
+        const filterNav = document.getElementById('filter-nav');
+        tags.forEach(tag => {
+          const btn = document.createElement('button');
+          btn.className = 'filter-btn';
+          btn.dataset.filter = tag;
+          btn.textContent = tag;
+          btn.addEventListener('click', () => setFilter(tag, btn));
+          filterNav.appendChild(btn);
+        });
+
+        document.querySelector('[data-filter="all"]').addEventListener('click', function() {
+          setFilter('all', this);
+        });
+
+        renderNotes(allNotes);
+      } catch (e) {
+        list.innerHTML = '<p class="error-msg">Could not load notes. Serve from a local server.</p>';
+      }
+    }
+
+    function setFilter(filter, btn) {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const filtered = filter === 'all'
+        ? allNotes
+        : allNotes.filter(n => (n.tags || []).includes(filter));
+      renderNotes(filtered);
+    }
+
+    function renderNotes(notes) {
+      const list = document.getElementById('notes-list');
+      if (!notes.length) {
+        list.innerHTML = '<p class="loading-msg">No notes match this filter.</p>';
+        return;
+      }
+
+      list.innerHTML = notes.map((n, i) => `
+        <a class="project-card stagger-${Math.min(i + 1, 6)}" href="${n.url}">
+          <div>
+            <div class="project-meta">
+              <span class="project-date">${n.date}</span>
+              ${(n.tags || []).map(t => `<span class="tag">${t}</span>`).join('')}
+            </div>
+            <div class="project-title">${n.title}</div>
+            <div class="project-desc">${n.description}</div>
+          </div>
+          <span class="arrow">↗</span>
+        </a>
+      `).join('');
+    }
+
+    init();
+  </script>
+
+</body>
+</html>

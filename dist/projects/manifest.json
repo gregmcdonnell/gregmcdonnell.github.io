@@ -1,0 +1,48 @@
+[
+  {
+    "title": "Coupled Pendulums",
+    "date": "2026-03",
+    "description": "A quick look at the physics of a chain of pendulums coupled together.",
+    "tags": [
+      "simulation",
+      "physics",
+      "pendulums",
+      "spring"
+    ],
+    "image": "/assets/images/coupled-pend-1.png",
+    "url": "/projects/coupled-pendulums",
+    "slug": "coupled-pendulums"
+  },
+  {
+    "title": "Cloth Simulation",
+    "date": "2025-07",
+    "description": "Simulating cloth with a grid of particles connected by springs.",
+    "tags": [
+      "simulation",
+      "physics",
+      "cloth",
+      "fluid",
+      "soft-body"
+    ],
+    "image": "/assets/images/cloth-1.png",
+    "url": "/projects/cloth-sim",
+    "slug": "cloth-sim"
+  },
+  {
+    "title": "GPU Particle Collisions",
+    "date": "2024-04",
+    "description": "A real time simulation of massive numbers of 2D and 3D particles with full collisions executed with GPU compute shaders.",
+    "tags": [
+      "simulation",
+      "physics",
+      "particles",
+      "collision",
+      "gpu",
+      "graphics",
+      "unity"
+    ],
+    "image": "",
+    "url": "/projects/gpu-particle-collisions",
+    "slug": "gpu-particle-collisions"
+  }
+]

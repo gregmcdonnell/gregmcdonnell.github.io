@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulations — Your Name</title>
+  <link rel="stylesheet" href="/style.css" />
+  <style>
+    /* ── Simulation card ── */
+    .sim-card {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.75rem;
+      padding: 1.5rem 0;
+      border-bottom: 1px solid var(--border);
+      animation: fadeUp 0.5s ease both;
+    }
+
+    .sim-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.3rem;
+      flex-wrap: wrap;
+    }
+
+    .sim-date {
+      font-family: var(--mono);
+      font-size: 0.67rem;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+
+    .sim-software {
+      font-family: var(--mono);
+      font-size: 0.63rem;
+      padding: 0.13rem 0.45rem;
+      background: var(--accent-light);
+      border-radius: 2px;
+      color: var(--accent);
+      letter-spacing: 0.04em;
+    }
+
+    .sim-title {
+      font-size: 1rem;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      margin-bottom: 0.3rem;
+    }
+
+    .sim-desc {
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      font-weight: 300;
+      margin-bottom: 0.6rem;
+    }
+
+    .sim-project-link {
+      font-family: var(--mono);
+      font-size: 0.67rem;
+      color: var(--accent);
+      text-decoration: none;
+      letter-spacing: 0.05em;
+      transition: opacity 0.15s ease;
+    }
+
+    .sim-project-link:hover { opacity: 0.7; }
+
+    .sim-tags {
+      display: flex;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+      margin-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav class="site-nav">
+    <a class="nav-home" href="/">Greg McDonnell</a>
+    <ul class="nav-links">
+      <li><a href="/projects">Projects</a></li>
+      <li><a href="/simulations" class="active">Simulations</a></li>
+      <li><a href="/gallery">Gallery</a></li>
+      <li><a href="/notes">Notes</a></li>
+    </ul>
+  </nav>
+
+  <!-- Page header -->
+  <div class="page-header">
+    <p class="page-label">Catalogue</p>
+    <h1>Simulations</h1>
+    <p>All simulations found on this site, linked back to its parent project. Filter by software or method.</p>
+  </div>
+
+  <!-- Filter + list -->
+  <main>
+    <div>Page under construction</div>
+    <!-- <div class="filter-nav" id="filter-nav">
+      <button class="filter-btn active" data-filter="all">All</button>
+    </div>
+    <div id="sim-list">
+      <p class="loading-msg">Loading…</p>
+    </div> -->
+  </main>
+
+  <!-- Footer -->
+
+    <footer class="site-footer">
+        <span>© 2026 Gregory McDonnell</span>
+        <div class="footer-links">
+            <a href="https://github.com/gregmcdonnell/gregmcdonnell.github.io.git" target="_blank">GitHub</a>
+            <a href="www.linkedin.com/in/greg-mcdonnell-a62398174" target="_blank">LinkedIn</a>
+        </div>
+    </footer>
+
+  <script>
+    let allSims = [];
+    let allProjects = [];
+
+    async function init() {
+      const list = document.getElementById('sim-list');
+      try {
+        const [simRes, projRes] = await Promise.all([
+          fetch('/data/simulations.json'),
+          fetch('/data/projects.json')
+        ]);
+        allSims = await simRes.json();
+        allProjects = await projRes.json();
+
+        // Build tag buttons from sim tags
+        const tags = [...new Set(allSims.flatMap(s => s.tags || []))].sort();
+        const filterNav = document.getElementById('filter-nav');
+        tags.forEach(tag => {
+          const btn = document.createElement('button');
+          btn.className = 'filter-btn';
+          btn.dataset.filter = tag;
+          btn.textContent = tag;
+          btn.addEventListener('click', () => setFilter(tag, btn));
+          filterNav.appendChild(btn);
+        });
+
+        document.querySelector('[data-filter="all"]').addEventListener('click', function() {
+          setFilter('all', this);
+        });
+
+        renderSims(allSims);
+      } catch (e) {
+        list.innerHTML = '<p class="error-msg">Could not load simulations data. Serve from a local server.</p>';
+      }
+    }
+
+    function setFilter(filter, btn) {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const filtered = filter === 'all'
+        ? allSims
+        : allSims.filter(s => (s.tags || []).includes(filter));
+      renderSims(filtered);
+    }
+
+    function renderSims(sims) {
+      const list = document.getElementById('sim-list');
+      if (!sims.length) {
+        list.innerHTML = '<p class="loading-msg">No simulations match this filter.</p>';
+        return;
+      }
+
+      list.innerHTML = sims.map((s, i) => {
+        const project = allProjects.find(p => p.id === s.project_id);
+        return `
+          <div class="sim-card stagger-${Math.min(i + 1, 6)}">
+            <div>
+              <div class="sim-meta">
+                <span class="sim-date">${s.date}</span>
+                <span class="sim-software">${s.software}</span>
+              </div>
+              <div class="sim-title">${s.title}</div>
+              <div class="sim-desc">${s.description}</div>
+              <div class="sim-tags">
+                ${(s.tags || []).map(t => `<span class="tag">${t}</span>`).join('')}
+              </div>
+              ${project ? `<a class="sim-project-link" href="${project.url}">↗ ${project.title}</a>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    init();
+  </script>
+
+</body>
+</html>

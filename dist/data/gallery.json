@@ -1,0 +1,23 @@
+[
+  {
+    "id": "img-001",
+    "src": "/assets/images/coupled-pend-1.png",
+    "caption": "",
+    "project_id": "coupled-pendulums",
+    "tags": ["fluid", "simulation"]
+  },
+  {
+    "id": "img-002",
+    "src": "/assets/images/solar-system-orbits.png",
+    "caption": "",
+    "project_id": "solar-system",
+    "tags": ["orbits", "simulation", "gravity", "n-body"]
+  },
+  {
+    "id": "img-003",
+    "src": "/assets/images/cloth-1.png",
+    "caption": "",
+    "project_id": "cloth-sim",
+    "tags": ["structural", "simulation"]
+  }
+]

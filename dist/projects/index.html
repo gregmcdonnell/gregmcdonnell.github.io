@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Projects — Your Name</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav class="site-nav">
+    <a class="nav-home" href="/">Greg McDonnell</a>
+    <ul class="nav-links">
+      <li><a href="/projects" class="active">Projects</a></li>
+      <li><a href="/simulations">Simulations</a></li>
+      <li><a href="/gallery">Gallery</a></li>
+      <li><a href="/notes">Notes</a></li>
+    </ul>
+  </nav>
+
+  <!-- Page header -->
+  <div class="page-header">
+    <p class="page-label">Archive</p>
+    <h1>Projects</h1>
+    <p>Engineering analysis, simulation studies, and technical builds — documented as they're finished.</p>
+  </div>
+
+  <!-- Filter + list -->
+  <main>
+    <div class="filter-nav" id="filter-nav">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <!-- Tag buttons injected by JS -->
+    </div>
+    <div class="project-list" id="project-list">
+      <p class="loading-msg">Loading…</p>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <span>© 2026 Your Name</span>
+    <div class="footer-links">
+      <a href="https://github.com/" target="_blank">GitHub</a>
+      <a href="https://linkedin.com/" target="_blank">LinkedIn</a>
+    </div>
+  </footer>
+
+  <script>
+    let allProjects = [];
+    let activeFilter = 'all';
+
+    async function loadProjects() {
+      const list = document.getElementById('project-list');
+      const filterNav = document.getElementById('filter-nav');
+
+      try {
+        const res = await fetch('/projects/manifest.json');
+        allProjects = await res.json();
+
+        // Collect unique tags
+        const tags = [...new Set(allProjects.flatMap(p => p.tags))].sort();
+        tags.forEach(tag => {
+          const btn = document.createElement('button');
+          btn.className = 'filter-btn';
+          btn.dataset.filter = tag;
+          btn.textContent = tag;
+          btn.addEventListener('click', () => setFilter(tag, btn));
+          filterNav.appendChild(btn);
+        });
+
+        renderProjects(allProjects);
+      } catch (e) {
+        list.innerHTML = '<p class="error-msg">Could not load projects.</p>';
+      }
+    }
+
+    function setFilter(filter, btn) {
+      activeFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const filtered = filter === 'all'
+        ? allProjects
+        : allProjects.filter(p => p.tags.includes(filter));
+
+      renderProjects(filtered);
+    }
+
+    function renderProjects(projects) {
+      const list = document.getElementById('project-list');
+
+      if (!projects.length) {
+        list.innerHTML = '<p class="loading-msg">No projects match this filter.</p>';
+        return;
+      }
+
+      list.innerHTML = projects.map((p, i) => `
+        <a class="project-card stagger-${Math.min(i + 1, 6)}" href="${p.url}">
+          <div>
+            <div class="project-meta">
+              <span class="project-date">${p.date}</span>
+              ${p.tags.map(t => `<span class="tag">${t}</span>`).join('')}
+            </div>
+            <div class="project-title">${p.title}</div>
+            <div class="project-desc">${p.description}</div>
+          </div>
+          <span class="arrow">↗</span>
+        </a>
+      `).join('');
+
+      // Wire up the All button
+      document.querySelector('[data-filter="all"]').addEventListener('click', function() {
+        setFilter('all', this);
+      });
+    }
+
+    // Wire All button before projects load
+    document.querySelector('[data-filter="all"]').addEventListener('click', function() {
+      setFilter('all', this);
+    });
+
+    loadProjects();
+  </script>
+
+</body>
+</html>

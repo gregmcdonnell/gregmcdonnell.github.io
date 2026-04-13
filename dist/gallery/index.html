@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Greg McDonnell — Engineering & Simulation</title>
+    <link rel="stylesheet" href="/style.css" />
+    <style>
+    /* ── Gallery grid ── */
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      margin-top: 1.5rem;
+    }
+
+    .gallery-item {
+      background: var(--bg);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      aspect-ratio: 4/3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s ease;
+    }
+
+    .gallery-item:hover { background: var(--surface); }
+
+    .gallery-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: opacity 0.2s ease;
+    }
+
+    /* Placeholder when no image is present */
+    .gallery-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: var(--tag-bg);
+    }
+
+    .gallery-placeholder-icon {
+      font-size: 1.4rem;
+      opacity: 0.3;
+    }
+
+    .gallery-placeholder-text {
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      text-align: center;
+      padding: 0 0.5rem;
+    }
+
+    /* Hover overlay */
+    .gallery-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(26,25,23,0.82);
+      opacity: 0;
+      transition: opacity 0.18s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 0.85rem;
+      gap: 0.3rem;
+    }
+
+    .gallery-item:hover .gallery-overlay { opacity: 1; }
+
+    .overlay-caption {
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.9);
+      font-weight: 300;
+      line-height: 1.4;
+    }
+
+    .overlay-project {
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      color: rgba(255,255,255,0.5);
+      letter-spacing: 0.06em;
+      text-decoration: none;
+    }
+
+    .overlay-project:hover { color: rgba(255,255,255,0.85); }
+
+    /* ── Lightbox ── */
+    .lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(26,25,23,0.92);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 1rem;
+      padding: 2rem;
+    }
+
+    .lightbox.open { display: flex; }
+
+    .lightbox img {
+      max-width: 90vw;
+      max-height: 75vh;
+      object-fit: contain;
+      border-radius: 2px;
+    }
+
+    .lightbox-caption {
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.7);
+      font-weight: 300;
+      text-align: center;
+    }
+
+    .lightbox-project-link {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--accent);
+      text-decoration: none;
+      letter-spacing: 0.06em;
+    }
+
+    .lightbox-close {
+      position: fixed;
+      top: 1.2rem;
+      right: 1.5rem;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.5);
+      background: none;
+      border: none;
+      cursor: pointer;
+      letter-spacing: 0.08em;
+    }
+
+    .lightbox-close:hover { color: #fff; }
+
+    /* ── No-image lightbox ── */
+    .lightbox-noimg {
+      width: 340px;
+      height: 200px;
+      background: var(--tag-bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .lightbox-noimg span {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+  </style>
+    
+</head>
+
+<body>
+
+    <!-- Nav -->
+    <nav class="site-nav">
+        <a class="nav-home" href="/">Greg McDonnell</a>
+        <ul class="nav-links">
+            <li><a id="nav-link-project" href="/projects">Projects</a></li>
+            <li><a id="nav-link-simulations" href="/simulations">Simulations</a></li>
+            <li><a id="nav-link-gallery" href="/gallery">Gallery</a></li>
+            <li><a id="nav-link-notes" href="/notes">Notes</a></li>
+        </ul>
+    </nav>
+
+    <!-- Page header -->
+  <div class="page-header">
+    <p class="page-label">Visuals</p>
+    <h1>Gallery</h1>
+    <p>Plots, renders, and visualizations from across projects. Click any image to enlarge and link to the source project.</p>
+  </div>
+
+  <!-- Filter -->
+  <main>
+    <div class="filter-nav" id="filter-nav">
+      <button class="filter-btn active" data-filter="all">All</button>
+    </div>
+    <div id="gallery-container">
+      <p class="loading-msg">Loading…</p>
+    </div>
+  </main>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true">
+    <button class="lightbox-close" id="lightbox-close">✕ close</button>
+    <div id="lightbox-body"></div>
+    <p class="lightbox-caption" id="lightbox-caption"></p>
+    <a class="lightbox-project-link" id="lightbox-project-link" href="#"></a>
+  </div>
+
+  <script>
+    let allImages = [];
+    let allProjects = [];
+
+    async function init() {
+      const container = document.getElementById('gallery-container');
+      try {
+        const [galRes, projRes] = await Promise.all([
+          fetch('/data/gallery.json'),
+          fetch('/projects/manifest.json')
+        ]);
+        allImages = await galRes.json();
+        allProjects = await projRes.json();
+
+        // Build tag buttons
+        const tags = [...new Set(allImages.flatMap(i => i.tags || []))].sort();
+        const filterNav = document.getElementById('filter-nav');
+        tags.forEach(tag => {
+          const btn = document.createElement('button');
+          btn.className = 'filter-btn';
+          btn.dataset.filter = tag;
+          btn.textContent = tag;
+          btn.addEventListener('click', () => setFilter(tag, btn));
+          filterNav.appendChild(btn);
+        });
+
+        document.querySelector('[data-filter="all"]').addEventListener('click', function() {
+          setFilter('all', this);
+        });
+
+        renderGallery(allImages);
+      } catch (e) {
+        container.innerHTML = '<p class="error-msg">Could not load gallery data. Serve from a local server.</p>';
+      }
+    }
+
+    function setFilter(filter, btn) {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const filtered = filter === 'all'
+        ? allImages
+        : allImages.filter(i => (i.tags || []).includes(filter));
+      renderGallery(filtered);
+    }
+
+    function renderGallery(images) {
+      const container = document.getElementById('gallery-container');
+      if (!images.length) {
+        container.innerHTML = '<p class="loading-msg">No images match this filter.</p>';
+        return;
+      }
+
+      const grid = document.createElement('div');
+      grid.className = 'gallery-grid';
+
+      images.forEach(img => {
+        const project = allProjects.find(p => p.slug === img.project_id);
+        const item = document.createElement('div');
+        item.className = 'gallery-item';
+
+        if (img.src) {
+          item.innerHTML = `
+            <img src="${img.src}" alt="${img.caption}" loading="lazy" onerror="this.parentElement.innerHTML=placeholderHTML('${img.id}')">
+            <div class="gallery-overlay">
+              <span class="overlay-caption">${img.caption}</span>
+              ${project ? `<a class="overlay-project" href="${project.url}">↗ ${project.title}</a>` : ''}
+            </div>
+          `;
+        } else {
+          item.innerHTML = `
+            <div class="gallery-placeholder">
+              <span class="gallery-placeholder-icon">◻</span>
+              <span class="gallery-placeholder-text">${img.caption}</span>
+            </div>
+            <div class="gallery-overlay">
+              <span class="overlay-caption">${img.caption}</span>
+              ${project ? `<span class="overlay-project">↗ ${project.title}</span>` : ''}
+            </div>
+          `;
+        }
+        
+        const overlayLink = item.querySelector("a");
+        if (overlayLink) {
+          overlayLink.addEventListener('click', (event) => event.stopPropagation());
+        }
+        item.addEventListener('click', () => openLightbox(img, project));
+        grid.appendChild(item);
+      });
+
+      container.innerHTML = '';
+      container.appendChild(grid);
+    }
+
+    function placeholderHTML(id) {
+      return `<div class="gallery-placeholder"><span class="gallery-placeholder-icon">◻</span><span class="gallery-placeholder-text">${id}</span></div>`;
+    }
+
+    function openLightbox(img, project) {
+      const lb = document.getElementById('lightbox');
+      const body = document.getElementById('lightbox-body');
+      const caption = document.getElementById('lightbox-caption');
+      const link = document.getElementById('lightbox-project-link');
+
+      if (img.src) {
+        body.innerHTML = `<img src="${img.src}" alt="${img.caption}" onerror="this.outerHTML='<div class=lightbox-noimg><span>Image not found</span></div>'">`;
+      } else {
+        body.innerHTML = `<div class="lightbox-noimg"><span>Image placeholder</span></div>`;
+      }
+
+      caption.textContent = img.caption;
+
+      if (project) {
+        link.textContent = `→ View project: ${project.title}`;
+        link.href = project.url;
+        link.style.display = '';
+      } else {
+        link.style.display = 'none';
+      }
+
+      lb.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox() {
+      document.getElementById('lightbox').classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
+    document.getElementById('lightbox').addEventListener('click', function(e) {
+      if (e.target === this) closeLightbox();
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+    init();
+  </script>
+
+    <!-- Footer -->
+
+    <footer class="site-footer">
+        <span>© 2026 Gregory McDonnell</span>
+        <div class="footer-links">
+            <a href="https://github.com/gregmcdonnell/gregmcdonnell.github.io.git" target="_blank">GitHub</a>
+            <a href="www.linkedin.com/in/greg-mcdonnell-a62398174" target="_blank">LinkedIn</a>
+        </div>
+    </footer>
+
+</body>
+
+</html>
