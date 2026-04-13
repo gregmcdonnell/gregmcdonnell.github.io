@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Greg McDonnell — Engineering & Simulation</title>
+  <link rel="stylesheet" href="/style.css" />
+  <style>
+    /* ── Homepage-specific ── */
+    .hero {
+      width: 100%;
+      max-width: var(--max-w);
+      padding: 4rem 0 3rem;
+      border-bottom: 1px solid var(--border);
+      animation: fadeUp 0.5s 0.05s ease both;
+    }
+
+    .hero-label {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 1.1rem;
+    }
+
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 400;
+      letter-spacing: -0.025em;
+      line-height: 1.15;
+      margin-bottom: 1.1rem;
+    }
+
+    .hero-bio {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      font-weight: 300;
+      max-width: 520px;
+      line-height: 1.7;
+      margin-bottom: 1.8rem;
+    }
+
+    .hero-links {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .hero-link {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-decoration: none;
+      color: var(--accent);
+      border: 1px solid currentColor;
+      padding: 0.4rem 0.85rem;
+      border-radius: 2px;
+      transition: all 0.15s ease;
+    }
+
+    .hero-link:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .hero-link.ghost {
+      color: var(--text-muted);
+      border-color: var(--border);
+    }
+
+    .hero-link.ghost:hover {
+      background: var(--text-primary);
+      border-color: var(--text-primary);
+      color: #fff;
+    }
+
+    /* ── Featured section ── */
+    .section {
+      width: 100%;
+      max-width: var(--max-w);
+      padding-top: 2.8rem;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 0;
+      padding-bottom: 0.9rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-title {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .section-link {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.07em;
+      color: var(--accent);
+      text-decoration: none;
+      transition: opacity 0.15s ease;
+    }
+
+    .section-link:hover { opacity: 0.7; }
+
+    /* ── Nav tiles ── */
+    .nav-tiles {
+      width: 100%;
+      max-width: var(--max-w);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 2.8rem;
+      animation: fadeUp 0.5s 0.3s ease both;
+    }
+
+    .nav-tile {
+      background: var(--bg);
+      padding: 1.6rem 1.4rem;
+      text-decoration: none;
+      color: inherit;
+      transition: background 0.15s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .nav-tile:hover { background: var(--surface); }
+
+    .nav-tile-label {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .nav-tile-title {
+      font-size: 1rem;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+    }
+
+    .nav-tile-desc {
+      font-size: 0.83rem;
+      color: var(--text-secondary);
+      font-weight: 300;
+      line-height: 1.5;
+    }
+
+    .spacer { flex: 1; }
+
+    @media (max-width: 480px) {
+      .nav-tiles { grid-template-columns: 1fr; }
+      .hero { padding: 2.8rem 0 2rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav class="site-nav">
+    <a class="nav-home" href="/">Greg McDonnell</a>
+    <ul class="nav-links">
+      <li><a href="/projects">Projects</a></li>
+      <li><a href="/simulations">Simulations</a></li>
+      <li><a href="/gallery">Gallery</a></li>
+      <li><a href="/notes">Notes</a></li>
+    </ul>
+  </nav>
+
+  <!-- Hero / About -->
+  <div class="hero">
+    <p class="hero-label">Engineer · Computational Methods</p>
+    <h1>Your Name</h1>
+    <p class="hero-bio">
+      I work at the intersection of physical simulation and engineering analysis —
+      building models that clarify how things break, flow, and deform.
+      This site is where I document projects, share simulations, and write
+      about techniques I find interesting.
+    </p>
+    <div class="hero-links">
+      <a class="hero-link" href="/projects">View all projects →</a>
+      <a class="hero-link ghost" href="mailto:you@example.com">Get in touch</a>
+      <a class="hero-link ghost" href="https://github.com/" target="_blank">GitHub</a>
+    </div>
+  </div>
+
+  <!-- Featured projects -->
+  <div class="section" style="animation: fadeUp 0.5s 0.15s ease both;">
+    <div class="section-header">
+      <span class="section-title">Featured Projects</span>
+      <a class="section-link" href="/projects">All projects →</a>
+    </div>
+    <div class="project-list" id="featured-list">
+      <p class="loading-msg">Loading…</p>
+    </div>
+  </div>
+
+  <!-- Page nav tiles -->
+  <div class="nav-tiles">
+    <a class="nav-tile" href="/projects">
+      <span class="nav-tile-label">Browse</span>
+      <span class="nav-tile-title">All Projects</span>
+      <span class="nav-tile-desc">The full archive, filterable by topic and method.</span>
+    </a>
+    <a class="nav-tile" href="/simulations">
+      <span class="nav-tile-label">Browse</span>
+      <span class="nav-tile-title">Simulations</span>
+      <span class="nav-tile-desc">A catalogue of every simulation I've run, tagged by software and method.</span>
+    </a>
+    <a class="nav-tile" href="/gallery">
+      <span class="nav-tile-label">Browse</span>
+      <span class="nav-tile-title">Gallery</span>
+      <span class="nav-tile-desc">Visualizations, plots, and renders from across projects.</span>
+    </a>
+    <a class="nav-tile" href="/notes">
+      <span class="nav-tile-label">Read</span>
+      <span class="nav-tile-title">Notes & Exploration</span>
+      <span class="nav-tile-desc">Writeups on interesting techniques, math, and ideas outside of specific projects.</span>
+    </a>
+  </div>
+
+  <div class="spacer" style="height: 3rem;"></div>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <span>© 2026 Your Name</span>
+    <div class="footer-links">
+      <a href="https://github.com/" target="_blank">GitHub</a>
+      <a href="https://linkedin.com/" target="_blank">LinkedIn</a>
+    </div>
+  </footer>
+
+  <script>
+    async function loadFeatured() {
+      const list = document.getElementById('featured-list');
+      try {
+        const [featRes, projRes] = await Promise.all([
+          fetch('data/featured.json'),
+          fetch('data/projects.json')
+        ]);
+        const featuredIds = await featRes.json();
+        const allProjects = await projRes.json();
+
+        const featured = featuredIds
+          .map(id => allProjects.find(p => p.id === id))
+          .filter(Boolean);
+
+        if (!featured.length) {
+          list.innerHTML = '<p class="loading-msg">No featured projects yet.</p>';
+          return;
+        }
+
+        list.innerHTML = featured.map((p, i) => `
+          <a class="project-card stagger-${i + 1}" href="${p.url}">
+            <div>
+              <div class="project-meta">
+                <span class="project-date">${p.date}</span>
+                ${p.tags.map(t => `<span class="tag">${t}</span>`).join('')}
+              </div>
+              <div class="project-title">${p.title}</div>
+              <div class="project-desc">${p.description}</div>
+            </div>
+            <span class="arrow">↗</span>
+          </a>
+        `).join('');
+      } catch (e) {
+        list.innerHTML = '<p class="error-msg">Could not load projects. Make sure you\'re running from a local server.</p>';
+      }
+    }
+
+    loadFeatured();
+  </script>
+
+</body>
+</html>

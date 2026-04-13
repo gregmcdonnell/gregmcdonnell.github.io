@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Greg McDonnell — Engineering & Simulation</title>
+  <link rel="stylesheet" href="style3.css" />
+</head>
+<body>
+
+  <!-- ── NAV ── -->
+  <nav class="site-nav">
+    <a class="nav-home" href="/">Greg McDonnell</a>
+    <ul class="nav-links">
+      <li><a href="/projects">Projects</a></li>
+      <li><a href="/simulations">Simulations</a></li>
+      <li><a href="/gallery">Gallery</a></li>
+      <li><a href="/notes">Notes</a></li>
+    </ul>
+    <a class="nav-contact" href="mailto:you@example.com">Get in touch</a>
+  </nav>
+
+  <!-- ── HERO ── -->
+  <section class="hero">
+    <div class="hero-left">
+      <p class="hero-label">Engineer · Computational Methods</p>
+      <h1 class="hero-name">Greg<br>McDonnell</h1>
+      <div class="hero-rule"></div>
+      <div class="hero-disciplines">
+        <span>Structural Analysis</span>
+        <span>Fluid Dynamics</span>
+        <span>Finite Element Methods</span>
+        <span>Numerical Simulation</span>
+      </div>
+    </div>
+    <div class="hero-right">
+      <p class="hero-bio">
+        I work at the intersection of physical simulation and engineering analysis —
+        building models that clarify how things break, flow, and deform.
+        This site is where I document projects, share simulations, and write
+        about techniques I find interesting.
+      </p>
+      <div class="hero-links">
+        <a class="hero-link" href="/projects">View all projects</a>
+        <a class="hero-link ghost" href="https://github.com/" target="_blank">GitHub ↗</a>
+        <a class="hero-link ghost" href="mailto:you@example.com">Email</a>
+      </div>
+      <div class="hero-meta">
+        <div class="meta-item">
+          <span class="meta-label">Status</span>
+          <span class="meta-value"><span class="status-dot"></span>Available</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Focus</span>
+          <span class="meta-value">FEM · CFD · Simulation</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Tools</span>
+          <span class="meta-value">ANSYS · OpenFOAM · Python</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FEATURED PROJECTS ── -->
+  <section class="projects-section">
+    <div class="projects-header">
+      <div class="projects-header-left">
+        <span class="section-eyebrow">Featured Work</span>
+        <h2 class="section-title">Selected Projects</h2>
+      </div>
+      <a class="section-link" href="/projects">Full archive →</a>
+    </div>
+
+    <div class="project-list" id="featured-list">
+      <p class="loading-msg">Loading…</p>
+    </div>
+  </section>
+
+  <!-- ── EXPLORE TILES ── -->
+  <section class="explore-section">
+    <span class="section-eyebrow">Explore</span>
+    <div class="nav-tiles">
+      <a class="nav-tile" href="/projects">
+        <div class="tile-top">
+          <span class="tile-num">01</span>
+          <span class="tile-arrow">↗</span>
+        </div>
+        <span class="tile-title">All Projects</span>
+        <span class="tile-desc">The full archive, filterable by topic and method.</span>
+      </a>
+      <a class="nav-tile" href="/simulations">
+        <div class="tile-top">
+          <span class="tile-num">02</span>
+          <span class="tile-arrow">↗</span>
+        </div>
+        <span class="tile-title">Simulations</span>
+        <span class="tile-desc">Every simulation I've run, tagged by software and method.</span>
+      </a>
+      <a class="nav-tile" href="/gallery">
+        <div class="tile-top">
+          <span class="tile-num">03</span>
+          <span class="tile-arrow">↗</span>
+        </div>
+        <span class="tile-title">Gallery</span>
+        <span class="tile-desc">Visualizations, plots, and renders from across projects.</span>
+      </a>
+      <a class="nav-tile" href="/notes">
+        <div class="tile-top">
+          <span class="tile-num">04</span>
+          <span class="tile-arrow">↗</span>
+        </div>
+        <span class="tile-title">Notes</span>
+        <span class="tile-desc">Writeups on techniques, math, and ideas outside of specific projects.</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- ── FOOTER ── -->
+  <footer class="site-footer">
+    <span class="footer-copy">© 2026 Greg McDonnell</span>
+    <span class="footer-tagline">Engineering · Simulation · Analysis</span>
+    <div class="footer-links">
+      <a href="https://github.com/" target="_blank">GitHub</a>
+      <a href="https://linkedin.com/" target="_blank">LinkedIn</a>
+    </div>
+  </footer>
+
+  <script>
+    async function loadFeatured() {
+      const list = document.getElementById('featured-list');
+      try {
+        const [featRes, projRes] = await Promise.all([
+          fetch('data/featured.json'),
+          fetch('data/projects.json')
+        ]);
+        const featuredIds = await featRes.json();
+        const allProjects = await projRes.json();
+        const featured = featuredIds
+          .map(id => allProjects.find(p => p.id === id))
+          .filter(Boolean);
+
+        if (!featured.length) {
+          list.innerHTML = '<p class="loading-msg">No featured projects yet.</p>';
+          return;
+        }
+
+        list.innerHTML = featured.map((p, i) => `
+          <a class="project-card stagger-${i + 1}" href="${p.url}">
+            <span class="project-index">0${i + 1}</span>
+            <div class="project-body">
+              <div class="project-meta">
+                <span class="project-date">${p.date}</span>
+                ${p.tags.map(t => `<span class="tag">${t}</span>`).join('')}
+              </div>
+              <div class="project-title">${p.title}</div>
+              <div class="project-desc">${p.description}</div>
+            </div>
+            <span class="arrow">↗</span>
+          </a>
+        `).join('');
+      } catch (e) {
+        list.innerHTML = '<p class="error-msg">Could not load projects. Make sure you\'re running from a local server.</p>';
+      }
+    }
+    loadFeatured();
+
+    // Scroll reveal
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in-view');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.08 });
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+  </script>
+
+</body>
+</html>

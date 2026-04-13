@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Greg McDonnell — Engineering & Simulation</title>
+    <link rel="stylesheet" href="/style4.css" />
+</head>
+
+<body>
+
+    <!-- Nav -->
+    <nav class="site-nav">
+        <a class="nav-home" href="/">Greg McDonnell</a>
+        <ul class="nav-links">
+            <li><a id="nav-link-project" href="/projects">Projects</a></li>
+            <li><a id="nav-link-simulations" href="/simulations">Simulations</a></li>
+            <li><a id="nav-link-gallery" href="/gallery">Gallery</a></li>
+            <li><a id="nav-link-notes" href="/notes">Notes</a></li>
+        </ul>
+    </nav>
+
+    <!-- Hero / About -->
+  <div class="hero">
+    <p class="hero-label">Engineer · Computational Methods</p>
+    <h1>Greg McDonnell</h1>
+    <p class="hero-bio">
+      I work at the intersection of physical simulation and engineering analysis —
+      building models that clarify how things break, flow, and deform.
+      This site is where I document projects, share simulations, and write
+      about techniques I find interesting.
+    </p>
+    <div class="hero-links">
+      <a class="hero-link" href="/projects">View all projects →</a>
+      <a class="hero-link ghost" href="/cdn-cgi/l/email-protection#631a0c1623061b020e130f064d000c0e">Get in touch</a>
+      <a class="hero-link ghost" href="https://github.com/" target="_blank">GitHub</a>
+    </div>
+  </div>
+
+  <!-- Featured projects -->
+  <div class="section" style="animation: fadeUp 0.5s 0.15s ease both;">
+    <div class="section-header">
+      <span class="section-title">Featured Projects</span>
+      <a class="section-link" href="/projects">All projects →</a>
+    </div>
+    <div class="project-list" id="featured-list">
+      <p class="loading-msg">Loading…</p>
+    </div>
+  </div>
+
+  <!-- Page nav tiles -->
+  <div class="nav-tiles">
+    <a class="nav-tile" href="/projects">
+      <span class="nav-tile-label">Browse</span>
+      <span class="nav-tile-title">All Projects</span>
+      <span class="nav-tile-desc">The full archive, filterable by topic and method.</span>
+    </a>
+    <a class="nav-tile" href="/simulations">
+      <span class="nav-tile-label">Browse</span>
+      <span class="nav-tile-title">Simulations</span>
+      <span class="nav-tile-desc">A catalogue of every simulation I've run, tagged by software and method.</span>
+    </a>
+    <a class="nav-tile" href="/gallery">
+      <span class="nav-tile-label">Browse</span>
+      <span class="nav-tile-title">Gallery</span>
+      <span class="nav-tile-desc">Visualizations, plots, and renders from across projects.</span>
+    </a>
+    <a class="nav-tile" href="/notes">
+      <span class="nav-tile-label">Read</span>
+      <span class="nav-tile-title">Notes & Exploration</span>
+      <span class="nav-tile-desc">Writeups on interesting techniques, math, and ideas outside of specific projects.</span>
+    </a>
+  </div>
+
+  <div class="spacer" style="height: 3rem;"></div>
+
+  <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+    async function loadFeatured() {
+      const list = document.getElementById('featured-list');
+      try {
+        const [featRes, projRes] = await Promise.all([
+          fetch('data/featured.json'),
+          fetch('data/projects.json')
+        ]);
+        const featuredIds = await featRes.json();
+        const allProjects = await projRes.json();
+
+        const featured = featuredIds
+          .map(id => allProjects.find(p => p.id === id))
+          .filter(Boolean);
+
+        if (!featured.length) {
+          list.innerHTML = '<p class="loading-msg">No featured projects yet.</p>';
+          return;
+        }
+
+        list.innerHTML = featured.map((p, i) => `
+          <a class="project-card stagger-${i + 1}" href="${p.url}">
+            <div>
+              <div class="project-meta">
+                <span class="project-date">${p.date}</span>
+                ${p.tags.map(t => `<span class="tag">${t}</span>`).join('')}
+              </div>
+              <div class="project-title">${p.title}</div>
+              <div class="project-desc">${p.description}</div>
+            </div>
+            <span class="arrow">↗</span>
+          </a>
+        `).join('');
+      } catch (e) {
+        list.innerHTML = '<p class="error-msg">Could not load projects. Make sure you\'re running from a local server.</p>';
+      }
+    }
+
+    loadFeatured();
+  </script>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <span>© 2026 Greg McDonnell</span>
+        <div class="footer-links">
+            <a href="https://github.com/" target="_blank">GitHub</a>
+            <a href="https://linkedin.com/" target="_blank">LinkedIn</a>
+        </div>
+    </footer>
+
+</body>
+
+</html>

@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT_DIR = path.join(__dirname, '..');
-const DIST_DIR = path.join(ROOT_DIR, 'dist');
+const DIST_DIR = path.join(ROOT_DIR, 'docs');
 const SRC_DIR = path.join(ROOT_DIR, 'src');
 // const ARTICLES_DIR = path.join(ROOT, 'articles');
 const TEMPLATE_DIR = path.join(SRC_DIR, 'templates');
