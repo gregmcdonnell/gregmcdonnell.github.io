@@ -1,22 +1,28 @@
+  
   <!-- Hero / About -->
   <div class="hero">
-    <p class="hero-label">Engineer · Computational Methods</p>
-    <h1>Your Name</h1>
-    <p class="hero-bio">
-      I work at the intersection of physical simulation and engineering analysis —
-      building models that clarify how things break, flow, and deform.
-      This site is where I document projects, share simulations, and write
-      about techniques I find interesting.
-    </p>
-    <div class="hero-links">
+    <p class="hero-label">Engineering · Physics · Computational Methods</p>
+    <h1>Welcome!</h1>
+    <div class="hero-container">
+      <p class="hero-bio">
+        My name is Greg McDonnell. I created this site as a compilation of fun and interesting projects
+        I've worked on. Here you'll find simulations and deep dives into the physics and engineering of our world. 
+        Thanks for visiting, I hope you find something that interests or inspires you, or maybe
+        just something that makes you glad to have stopped by.
+      </p>
+      <img class="hero-img" src="/assets/images/solar-system-orbits.png"></img>
+    </div>
+
+    <p>Site is in early development. Much more to come soon!</p>
+    <!-- <div class="hero-links">
       <a class="hero-link" href="/projects">View all projects →</a>
       <a class="hero-link ghost" href="mailto:you@example.com">Get in touch</a>
       <a class="hero-link ghost" href="https://github.com/" target="_blank">GitHub</a>
-    </div>
+    </div> -->
   </div>
 
   <!-- Featured projects -->
-  <div class="section" style="animation: fadeUp 0.5s 0.15s ease both;">
+  <div class="section">
     <div class="section-header">
       <span class="section-title">Featured Projects</span>
       <a class="section-link" href="/projects">All projects →</a>
@@ -31,17 +37,17 @@
     <a class="nav-tile" href="/projects">
       <span class="nav-tile-label">Browse</span>
       <span class="nav-tile-title">All Projects</span>
-      <span class="nav-tile-desc">The full archive, filterable by topic and method.</span>
+      <span class="nav-tile-desc">Archive of projects and articles, filterable by topic.</span>
     </a>
     <a class="nav-tile" href="/simulations">
       <span class="nav-tile-label">Browse</span>
       <span class="nav-tile-title">Simulations</span>
-      <span class="nav-tile-desc">A catalogue of every simulation I've run, tagged by software and method.</span>
+      <span class="nav-tile-desc">A catalogue of interactive simulations I've created.</span>
     </a>
     <a class="nav-tile" href="/gallery">
       <span class="nav-tile-label">Browse</span>
       <span class="nav-tile-title">Gallery</span>
-      <span class="nav-tile-desc">Visualizations, plots, and renders from across projects.</span>
+      <span class="nav-tile-desc">Visualizations, plots, and renders from projects.</span>
     </a>
     <a class="nav-tile" href="/notes">
       <span class="nav-tile-label">Read</span>
@@ -58,13 +64,13 @@
       try {
         const [featRes, projRes] = await Promise.all([
           fetch('data/featured.json'),
-          fetch('data/projects.json')
+          fetch('projects/manifest.json')
         ]);
         const featuredIds = await featRes.json();
         const allProjects = await projRes.json();
 
         const featured = featuredIds
-          .map(id => allProjects.find(p => p.id === id))
+          .map(slug => allProjects.find(p => p.slug === slug))
           .filter(Boolean);
 
         if (!featured.length) {
