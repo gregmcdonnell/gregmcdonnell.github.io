@@ -1,0 +1,280 @@
+<script type="application/json" id="metadata">
+{
+    "title": "Cloth Simulation",
+    "date": "2024-05",
+    "description": "Simulating cloth with a grid of particles connected by springs.",
+    "tags": ["simulation", "physics", "cloth", "fluid", "soft-body"],
+    "image": "/assets/images/cloth-1.png"
+}
+</script>
+
+
+<main>
+  <div class="hero">
+    <div class="hero-meta">
+      <span class="tag">Physics</span>
+      <span class="sep">·</span>
+      <span>April 13, 2026</span>
+      <span class="sep">·</span>
+      <span>12 min read</span>
+    </div>
+
+    <h1>Cloth Simulation with <em>Verlet</em> Integration</h1>
+
+    <p class="hero-sub">
+      A deep dive into building a real-time cloth simulation from scratch — covering constraint solving, structural vs.
+      shear springs, and the surprising elegance of position-based dynamics.
+    </p>
+
+    <a href="/simulations/cloth" class="sim-cta">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+        stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="5 3 19 12 5 21 5 3" />
+      </svg>
+      Open Interactive Simulation
+    </a>
+  </div>
+
+  <!-- ── Article body ──────────────────────────────────── -->
+  <div class="page-body">
+    <article>
+
+      <p>
+        Cloth simulation has been a staple of game engines and VFX pipelines for decades, yet the core ideas behind it
+        are
+        remarkably accessible. At its heart, a piece of cloth is just a grid of point masses connected by springs — and
+        the
+        challenge is making those springs behave in a way that feels convincingly physical without blowing up your frame
+        budget.
+      </p>
+
+      <p>
+        In this article I'll walk through the simulation I built, explain the key algorithmic decisions, and show you
+        where
+        the math actually lives in the code. By the end you should have a solid mental model for building your own.
+      </p>
+
+      <!-- ── Section 1 ── -->
+      <h2>Why Verlet Integration?</h2>
+
+      <p>
+        Most introductory physics tutorials reach for Euler integration — update velocity, then update position. It's
+        simple and intuitive, but it has a dirty secret: it adds energy to the system. Springs become stiffer over time,
+        oscillations grow, and eventually your simulation explodes.
+      </p>
+
+      <p>
+        Verlet integration sidesteps this by never storing velocity explicitly. Instead, velocity is <em>implicit</em>
+        in
+        the difference between the current and previous position. This makes it naturally energy-conservative and
+        beautifully stable even at larger timesteps.
+      </p>
+
+      <div class="formula">
+        x<sub>n+1</sub> = 2x<sub>n</sub> − x<sub>n−1</sub> + a·Δt²
+      </div>
+
+      <div class="callout">
+        <strong>Note</strong>
+        Verlet integration is second-order accurate — the same order as Runge-Kutta 2 — but requires no velocity storage
+        and is trivially symplectic, making it ideal for constraint-heavy simulations.
+      </div>
+
+      <h3>Implementation</h3>
+
+      <p>
+        Here's the core particle update loop. Each particle stores its current position and its previous position;
+        that's all
+        we need to integrate forward in time.
+      </p>
+
+      <div class="code-block">
+        <span class="code-label">JavaScript</span>
+        <pre><code><span class="kw">class</span> <span class="fn">Particle</span> {
+  <span class="fn">constructor</span>(x, y) {
+    <span class="tp">this</span>.pos  = { x, y };
+    <span class="tp">this</span>.prev = { x, y };  <span class="cm">// previous position for Verlet</span>
+    <span class="tp">this</span>.pinned = <span class="kw">false</span>;
+  }
+
+  <span class="fn">update</span>(dt) {
+    <span class="kw">if</span> (<span class="tp">this</span>.pinned) <span class="kw">return</span>;
+
+    <span class="kw">const</span> ax = <span class="nm">0</span>;
+    <span class="kw">const</span> ay = GRAVITY;   <span class="cm">// e.g. 980 px/s²</span>
+
+    <span class="kw">const</span> vx = <span class="tp">this</span>.pos.x - <span class="tp">this</span>.prev.x;
+    <span class="kw">const</span> vy = <span class="tp">this</span>.pos.y - <span class="tp">this</span>.prev.y;
+
+    <span class="tp">this</span>.prev.x = <span class="tp">this</span>.pos.x;
+    <span class="tp">this</span>.prev.y = <span class="tp">this</span>.pos.y;
+
+    <span class="tp">this</span>.pos.x += vx * DAMPING + ax * dt * dt;
+    <span class="tp">this</span>.pos.y += vy * DAMPING + ay * dt * dt;
+  }
+}</code></pre>
+      </div>
+
+      <p>
+        The <code>DAMPING</code> factor (typically 0.98–0.995) bleeds off a small amount of energy each frame,
+        simulating
+        air resistance and preventing the simulation from becoming a perpetual-motion machine.
+      </p>
+
+      <!-- ── Section 2 ── -->
+      <h2>Building the Cloth Grid</h2>
+
+      <p>
+        The cloth itself is a 2D grid of particles. Each particle is connected to its immediate neighbours — up, down,
+        left,
+        right — with <em>structural springs</em>. We also add <em>shear springs</em> along the diagonals to prevent the
+        cloth from collapsing into an accordion fold, and optionally <em>bend springs</em> that skip one particle to
+        resist folding.
+      </p>
+
+      <figure>
+        <!-- Replace src with your actual image -->
+        <img src="https://placehold.co/900x400/1e1b18/c8440a?text=Cloth+Spring+Topology+Diagram"
+          alt="Diagram showing structural, shear, and bend spring connections between cloth particles" />
+        <figcaption>FIG. 1 — Spring topology for a 4×4 cloth patch. Structural (grey), shear (orange), bend (dashed).
+        </figcaption>
+      </figure>
+
+      <div class="code-block">
+        <span class="code-label">JavaScript</span>
+        <pre><code><span class="kw">function</span> <span class="fn">buildCloth</span>(cols, rows, spacing) {
+  <span class="kw">const</span> particles = [];
+  <span class="kw">const</span> constraints = [];
+
+  <span class="cm">// Create particle grid</span>
+  <span class="kw">for</span> (<span class="kw">let</span> r = <span class="nm">0</span>; r &lt; rows; r++) {
+    <span class="kw">for</span> (<span class="kw">let</span> c = <span class="nm">0</span>; c &lt; cols; c++) {
+      <span class="kw">const</span> p = <span class="kw">new</span> <span class="fn">Particle</span>(c * spacing, r * spacing);
+      <span class="kw">if</span> (r === <span class="nm">0</span>) p.pinned = <span class="kw">true</span>;  <span class="cm">// pin top row</span>
+      particles.<span class="fn">push</span>(p);
+    }
+  }
+
+  <span class="kw">const</span> <span class="fn">idx</span> = (r, c) => r * cols + c;
+
+  <span class="cm">// Structural + shear + bend springs</span>
+  <span class="kw">for</span> (<span class="kw">let</span> r = <span class="nm">0</span>; r &lt; rows; r++) {
+    <span class="kw">for</span> (<span class="kw">let</span> c = <span class="nm">0</span>; c &lt; cols; c++) {
+      <span class="kw">if</span> (c + <span class="nm">1</span> &lt; cols)  <span class="fn">addConstraint</span>(constraints, particles, <span class="fn">idx</span>(r,c), <span class="fn">idx</span>(r,c+<span class="nm">1</span>));   <span class="cm">// structural →</span>
+      <span class="kw">if</span> (r + <span class="nm">1</span> &lt; rows)  <span class="fn">addConstraint</span>(constraints, particles, <span class="fn">idx</span>(r,c), <span class="fn">idx</span>(r+<span class="nm">1</span>,c));   <span class="cm">// structural ↓</span>
+      <span class="kw">if</span> (r + <span class="nm">1</span> &lt; rows && c + <span class="nm">1</span> &lt; cols) <span class="fn">addConstraint</span>(constraints, particles, <span class="fn">idx</span>(r,c), <span class="fn">idx</span>(r+<span class="nm">1</span>,c+<span class="nm">1</span>)); <span class="cm">// shear ↘</span>
+      <span class="kw">if</span> (r + <span class="nm">1</span> &lt; rows && c - <span class="nm">1</span> >= <span class="nm">0</span>)  <span class="fn">addConstraint</span>(constraints, particles, <span class="fn">idx</span>(r,c), <span class="fn">idx</span>(r+<span class="nm">1</span>,c-<span class="nm">1</span>)); <span class="cm">// shear ↙</span>
+      <span class="kw">if</span> (c + <span class="nm">2</span> &lt; cols)  <span class="fn">addConstraint</span>(constraints, particles, <span class="fn">idx</span>(r,c), <span class="fn">idx</span>(r,c+<span class="nm">2</span>));   <span class="cm">// bend →→</span>
+      <span class="kw">if</span> (r + <span class="nm">2</span> &lt; rows)  <span class="fn">addConstraint</span>(constraints, particles, <span class="fn">idx</span>(r,c), <span class="fn">idx</span>(r+<span class="nm">2</span>,c));   <span class="cm">// bend ↓↓</span>
+    }
+  }
+
+  <span class="kw">return</span> { particles, constraints };
+}</code></pre>
+      </div>
+
+      <!-- ── Section 3 ── -->
+      <h2>Constraint Solving</h2>
+
+      <p>
+        Springs in a cloth simulation aren't governed by Hooke's law in the traditional sense. Instead, we treat each
+        spring as a <em>distance constraint</em> — a rule that says two particles must be exactly <em>d</em> units
+        apart.
+        We enforce this iteratively by projecting the particles back onto the constraint surface.
+      </p>
+
+      <p>
+        Running this solver multiple times per frame (typically 5–20 iterations) is what gives the cloth its stiffness
+        without requiring a stiff ODE solver. More iterations = stiffer cloth = more stable, but at higher CPU cost.
+      </p>
+
+      <div class="code-block">
+        <span class="code-label">JavaScript</span>
+        <pre><code><span class="kw">function</span> <span class="fn">satisfyConstraint</span>(c) {
+  <span class="kw">const</span> dx = c.b.pos.x - c.a.pos.x;
+  <span class="kw">const</span> dy = c.b.pos.y - c.a.pos.y;
+  <span class="kw">const</span> dist  = Math.<span class="fn">sqrt</span>(dx*dx + dy*dy) || <span class="nm">0.0001</span>;
+  <span class="kw">const</span> diff  = (dist - c.restLength) / dist;
+
+  <span class="cm">// Correction vector, split 50/50 between both particles</span>
+  <span class="kw">const</span> corrX = dx * diff * <span class="nm">0.5</span>;
+  <span class="kw">const</span> corrY = dy * diff * <span class="nm">0.5</span>;
+
+  <span class="kw">if</span> (!c.a.pinned) { c.a.pos.x += corrX; c.a.pos.y += corrY; }
+  <span class="kw">if</span> (!c.b.pinned) { c.b.pos.x -= corrX; c.b.pos.y -= corrY; }
+}
+
+<span class="cm">// Run N iterations per frame</span>
+<span class="kw">for</span> (<span class="kw">let</span> i = <span class="nm">0</span>; i &lt; SOLVER_ITERATIONS; i++) {
+  constraints.<span class="fn">forEach</span>(satisfyConstraint);
+}</code></pre>
+      </div>
+
+      <div class="divider">· · ·</div>
+
+      <!-- ── Section 4 ── -->
+      <h2>Tearing &amp; Interaction</h2>
+
+      <p>
+        One of the most satisfying additions is cloth tearing. When a constraint is stretched beyond a threshold, we
+        simply
+        remove it from the list. Because the solver is purely position-based, this requires no special handling — the
+        cloth
+        naturally falls apart.
+      </p>
+
+      <figure>
+        <img src="https://placehold.co/900x350/1e1b18/e8824a?text=Before+%2F+After+Tearing"
+          alt="Side-by-side showing cloth before and after a tear propagates" />
+        <figcaption>FIG. 2 — Tearing in action. The constraint is removed when stretch exceeds 1.8× rest length.
+        </figcaption>
+      </figure>
+
+      <p>
+        Mouse interaction follows the same principle. On <code>mousedown</code>, we find the nearest particle within a
+        grab radius, pin it to the cursor, and drag it through the simulation. On <code>mouseup</code>, we release the
+        pin — and optionally tear every constraint attached to that particle if the cursor was moving fast enough.
+      </p>
+
+      <!-- ── Section 5 ── -->
+      <h2>Performance Considerations</h2>
+
+      <p>
+        A 40×40 cloth grid has 1,600 particles and roughly 9,000 constraints. Running 10 solver iterations means 90,000
+        constraint projections per frame. In JavaScript this is fast enough to hit 60 fps comfortably — but there's
+        still
+        room to optimise.
+      </p>
+
+      <h3>Spatial Partitioning</h3>
+
+      <p>
+        For collision detection (cloth against itself or against scene objects), a flat O(n²) search is untenable. A
+        uniform
+        spatial hash — where each particle is binned into a 2D cell proportional to the maximum constraint rest length —
+        reduces
+        average lookup cost to O(1), making self-collision feasible in real-time.
+      </p>
+
+      <div class="callout">
+        <strong>Tip</strong>
+        Typed arrays (<code>Float32Array</code>) for particle positions and a flat constraint array encoded as index
+        pairs
+        can yield a 2–3× throughput improvement over a class-based approach in V8, mainly due to better cache locality.
+      </div>
+
+      <!-- ── End CTA ── -->
+      <div class="end-cta">
+        <p>Ready to pull, tear, and play with the cloth yourself?</p>
+        <a href="/simulations/cloth" class="sim-cta">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3" />
+          </svg>
+          Launch Cloth Simulation
+        </a>
+      </div>
+
+    </article>
+  </div>
+</main>

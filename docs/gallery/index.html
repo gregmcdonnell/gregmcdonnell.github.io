@@ -216,7 +216,7 @@
       const container = document.getElementById('gallery-container');
       try {
         const [galRes, projRes] = await Promise.all([
-          fetch('/data/gallery.json'),
+          fetch('/gallery/gallery.json'),
           fetch('/projects/manifest.json')
         ]);
         allImages = await galRes.json();
@@ -264,7 +264,7 @@
       grid.className = 'gallery-grid';
 
       images.forEach(img => {
-        const project = allProjects.find(p => p.slug === img.project_id);
+        const project = allProjects.find(p => p.slug === img.project_slug);
         const item = document.createElement('div');
         item.className = 'gallery-item';
 

@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A quick javascript simulation of a line of pendulums coupled with angular springs.">
+    <meta name="date" content="2025-06">
+
     <title>Coupled Pendulums</title>
     
     <!-- Basic styling -->
@@ -23,6 +26,18 @@
             font-family: Arial, sans-serif;
             font-size: 20px;
         }
+
+        .controls {
+          position: absolute;
+          left: 20px;
+          top: 60px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          z-index: 1;
+
+        }
+
         .slider-center {
           position: absolute;
           left: 50%;
@@ -31,11 +46,8 @@
           text-align: center;
         }
 
-        .slider-left {
-          position: absolute;
-          left: 10px;
-          z-index: 1;
-          text-align: left;
+        .slider {
+          width: 160px;
         }
     </style>
     
@@ -65,17 +77,49 @@
         <input type="range" id="sliderAngle" min="-6.28" max="6.28" value="0" step=".01" style="width: 50vw;">
       </label>
     </div> -->
-    <div class="range-group slider-left" style="top: 100px;">
-      <label for="slider">
-        <div>Spring Constant: <span>0</span></div>
-        <input type="range" id="sliderSpring" min="1" max="10000" value="1" step="1" style="width: 160px;">
-      </label>
-    </div>
-    <div class="range-group slider-left" style="top: 140px;">
-      <label for="slider">
-        <div>Damping: <span>0</span></div>
-        <input type="range" id="sliderDamping" min="0" max="10" value="0" step=".01" style="width: 160px;">
-      </label>
+    <!-- <h3>Fix End Pendulums:</h3> -->
+    <div class="controls">
+      <div>Pendulum Modes:</div>
+      <div>
+        <label for="selectNearMode">Near Mode:</label>
+        <select id="selectNearMode">
+          <option value="0">Free</option>
+          <option value="1">Fixed</option>
+          <option value="2">Oscillating</option>
+        </select>
+      </div>
+      <div>
+        <label for="selectFarMode">Far Mode:</label>
+        <select id="selectFarMode">
+          <option value="0">Free</option>
+          <option value="1">Fixed</option>
+          <option value="2">Oscillating</option>
+        </select>
+      </div>
+      <br>
+      <div class="range-group">
+          <div>Spring Constant: <span>0</span></div>
+          <input class="slider" type="range" id="sliderSpring" min="1" max="10000" value="1" step="1">
+      </div>
+      <div class="range-group">
+          <div>Damping: <span>0</span></div>
+          <input class="slider" type="range" id="sliderDamping" min="0" max="20" value="0" step=".01">
+      </div>
+      <div class="range-group">
+          <div>Drag: <span>0</span></div>
+          <input class="slider" type="range" id="sliderDrag" min="0" max="2" value="0" step=".01">
+      </div>
+      <div class="range-group">
+        <div>
+          <input type="checkbox" id="cbGravity" checked="true">
+          Gravity: <span>0</span>
+        </div>
+        <input class="slider" type="range" id="sliderGravity" min="0" max="50" value="0" step=".01">
+      </div>
+      <div class="range-group">
+          <div>Drive Frequency: <span>0</span></div>
+          <input class="slider" type="range" id="sliderFreq" min="0" max="20" value="0" step=".01">
+      </div>
     </div>
     
     <script type="module">
@@ -105,12 +149,17 @@
         const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
         directionalLight.position.set(1, 1, 1);
         scene.add(directionalLight);
-        
+
+        // const plane = new THREE.Mesh( new THREE.PlaneGeometry( 50, 50 ), new THREE.MeshStandardMaterial({ color: 0x555555 }) );
+        // plane.rotation.x = -Math.PI / 2;
+        // plane.position.y = -1.3;
+        // scene.add( plane );
+
         // Simulation variables
         const pendulumCount = 200;
         const pendulumSpacing = .1;
         const pendulumLength = 1;
-        const damping = 0.1;
+        // const damping = 0.1;
         const dt = .01;
 
         let pendulums = [];
@@ -130,7 +179,17 @@
         const sliderSpring = document.getElementById('sliderSpring');
         sliderSpring.value = 2000;
         const sliderDamping = document.getElementById('sliderDamping');
-        sliderDamping.value = .1;
+        sliderDamping.value = 4;
+        const sliderDrag = document.getElementById('sliderDrag');
+        sliderDrag.value = .1;
+        const sliderGravity = document.getElementById('sliderGravity');
+        sliderGravity.value = 9.81;
+        const sliderFreq = document.getElementById('sliderFreq');
+        sliderFreq.value = 5;
+
+        const cbGravity = document.getElementById('cbGravity');
+        const selectNearMode = document.getElementById('selectNearMode');
+        const selectFarMode = document.getElementById('selectFarMode');
         
 
         // Create pendulums
@@ -153,12 +212,22 @@
             scene.add(pendulum);
         }
 
+        let time = 0;
+
         // Animate the scene, this is the main update loop
         function animate() {
             requestAnimationFrame(animate);
 
-            let springConstant = sliderSpring.value;
-            let damping = sliderDamping.value;
+            const lastPendulum = pendulumCount - 1;
+            let springConstant = +sliderSpring.value;
+            let damping = +sliderDamping.value;
+            const drag = Math.pow(sliderDrag.value, 4);
+            const gravity = cbGravity.checked ? +sliderGravity.value : 0;
+            const nearMode = +selectNearMode.value;
+            const farMode = +selectFarMode.value;
+            const nearFixed = nearMode == 1;
+            const farFixed = farMode == 1;
+            const oscFrequency = sliderFreq.value;
 
             // Apply torques
             // I did not specify that there was gravity so no need to include it here, but it would be trivial to add
@@ -172,14 +241,28 @@
               torques[i-1] += torque;
             }
 
+            time += dt;
             // Update angles with simple euler integration
             for (let i = 0; i < pendulumCount; i++) {
+              if (gravity != 0) {
+                torques[i] -= gravity * pendulumLength * Math.sin(angles[i]);
+              }
+              const angVel = angularVelocities[i];
+              torques[i] -= drag * Math.sign(angVel);
               if (selectedMesh && selectedMesh.userData.index === i) {
                 angularVelocities[i] = 0;
                 angles[i] = lerp(angles[i], selectedMesh.userData.targetAngle, .1);
-              } else if (i != 0){
+              } else if (!((i == 0 && nearFixed) || (i == lastPendulum && farFixed))){
                 angularVelocities[i] += torques[i] * dt;
                 angles[i] += angularVelocities[i] * dt;
+              }
+              if (i == 0 && nearMode == 2) {
+                angularVelocities[i] = oscFrequency * Math.cos(oscFrequency * time);
+                angles[i] = Math.sin(oscFrequency * time);
+              }
+              if (i == lastPendulum && farMode == 2) {
+                angularVelocities[i] = oscFrequency * Math.cos(oscFrequency * time);
+                angles[i] = Math.sin(oscFrequency * time);
               }
               torques[i] = 0;
               pendulums[i].rotation.z = angles[i];

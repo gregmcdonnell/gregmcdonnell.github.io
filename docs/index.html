@@ -4,7 +4,9 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Greg McDonnell — Engineering & Simulation</title>
+    <title>Greg McDonnell — Physics & Engineering</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="stylesheet" href="/style.css" />
 </head>
 
@@ -46,7 +48,7 @@
   <!-- Featured projects -->
   <div class="section">
     <div class="section-header">
-      <span class="section-title">Featured Projects</span>
+      <span class="section-title">Featured</span>
       <a class="section-link" href="/projects">All projects →</a>
     </div>
     <div class="project-list" id="featured-list">
@@ -84,23 +86,42 @@
     async function loadFeatured() {
       const list = document.getElementById('featured-list');
       try {
-        const [featRes, projRes] = await Promise.all([
+        const [featRes, projRes, simRes] = await Promise.all([
           fetch('data/featured.json'),
-          fetch('projects/manifest.json')
+          fetch('projects/manifest.json'),
+          fetch('simulations/simulations.json')
         ]);
         const featuredIds = await featRes.json();
         const allProjects = await projRes.json();
+        const allSimulations = await simRes.json();
+        const projectMap = new Map(allProjects.map(p => [p.slug, p]));
+        const simulationMap = new Map(allSimulations.map(s => [s.slug, s]));
 
-        const featured = featuredIds
-          .map(slug => allProjects.find(p => p.slug === slug))
-          .filter(Boolean);
+        // const featured = featuredIds
+        //   .map(f => allProjects.find(p => p.slug === f.slug))
+        //   .filter(Boolean);
+        const featured = [];
+        featuredIds.forEach(f => {
+          if (f.type == "project") {
+            const project = projectMap.get(f.slug);
+            if (project) featured.push({type: "project", o: project});
+          }
+          else if (f.type == "sim") {
+            const sim = simulationMap.get(f.slug);
+            if (sim) featured.push({type: "sim", o: sim});
+          }
+        });
+        console.log(featured);
 
         if (!featured.length) {
           list.innerHTML = '<p class="loading-msg">No featured projects yet.</p>';
           return;
         }
 
-        list.innerHTML = featured.map((p, i) => `
+        list.innerHTML = featured.map((f, i) => {
+          if (f.type == "project") {
+            const p = f.o;
+            return `
           <a class="project-card stagger-${i + 1}" href="${p.url}">
             <div>
               <div class="project-meta">
@@ -112,9 +133,26 @@
             </div>
             <span class="arrow">↗</span>
           </a>
-        `).join('');
+        `} 
+        else {
+          const s = f.o;
+          return `
+          <a class="project-card project-card-i stagger-${Math.min(i + 1, 6)}" href="${s.url}">
+            <img class="project-card__thumb" src="${s.url}/thumbnail.png" alt="${s.title} preview" loading="lazy">
+            <div class="project-card__content">
+              <div class="project-meta">
+                <span class="project-date">${s.date}</span>
+                ${(s.tags || []).map(t => `<span class="tag">${t}</span>`).join('')}
+              </div>
+              <div class="project-title">${s.title}</div>
+              <div class="project-desc">${s.description}</div>
+            </div>
+            <span class="arrow">Run →</span>
+          </a>
+        `}
+      }).join('');
       } catch (e) {
-        list.innerHTML = '<p class="error-msg">Could not load projects. Make sure you\'re running from a local server.</p>';
+        list.innerHTML = '<p class="error-msg">Could not load projects.</p>';
       }
     }
 

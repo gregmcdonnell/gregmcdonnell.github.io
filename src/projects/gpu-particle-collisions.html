@@ -1,25 +1,222 @@
-<script type="application/json" id="metadata">
-{
-    "title": "GPU Particle Collisions",
-    "date": "2024-04",
-    "description": "A real time simulation of massive numbers of 2D and 3D particles with full collisions executed with GPU compute shaders.",
-    "tags": ["simulation", "physics", "particles", "collision", "gpu", "graphics", "unity"],
-    "image": ""
-}
-</script>
+<head>
+    <script type="application/json" id="metadata">
+    {
+        "title": "GPU Particle Collisions",
+        "date": "2024-04",
+        "description": "A real time simulation of massive numbers of 2D and 3D particles with full collisions executed with GPU compute shaders.",
+        "tags": ["simulation", "physics", "particles", "fluid", "collision", "gpu", "graphics", "unity"],
+        "image": "/assets/images/gpu-particle-collisions/gpu-particles-1.png"
+    }
+    </script>
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism.min.css" rel="stylesheet">
+</head>
 
 <main>
+    <div class="hero">
+        <div class="hero-meta">
+            <span>2024</span>
+        </div>
+
+        <h1>GPU-Driven Colliding Particles</h1>
+
+        <p class="hero-sub">
+            A real time simulation of massive numbers of 2D and 3D particles with full collisions executed with GPU compute shaders.
+        </p>
+
+    </div>
     <article>
-        <h2>2D Particle collisions</h2>
+
         <p>
             Particle simulations are ubiquitous in today’s media, and there is no shortage of software to choose from to
-            add
-            them to your game, movie, or app. Yet rather than rely on existing tools, I set out to build my own system
-            from
-            scratch—both to demystify the underlying mechanics and to push the boundaries of how many particles I could
-            get
-            flying around on my screen.
+            add them to your game, movie, or app. Yet rather than rely on existing tools, I set out to build my own
+            system from scratch—both to demystify the underlying mechanics and to push the boundaries of how many
+            particles I could get flying around on my screen.
         </p>
-        <img src=""></img>
+
+        <img class="fit-image" src="/assets/images/gpu-particle-collisions/gpu-particles-1.png"></img>
+
+        <h2>Particle Interaction Model</h2>
+
+        <p>
+            The simulation I aimed to create would be real time and physics based, and the goal was to simulate and
+            render thousands to millions of particles with accurate collisions while maintaining a smooth framerate. In
+            order to reach these numbers, we need to take advantage of parallelization and run the simulation directly
+            on the GPU. I decided on the following rules to govern how the particles behaved and interacted:
+        </p>
+
+        <ul>
+            <li>Particles are defined as circles with a 2D position and a radius</li>
+            <li>Collisions are modeled as a damped spring force between the two particles based on the overlap distance
+                of the two particles</li>
+            <li>Particles are confined within a square boundary</li>
+        </ul>
+
+        <p>Below is some hlsl code to calculate the collision force between any two particles.</p>
+
+        <pre><code class="language-hlsl">float2 CollisionForce(Particle particleA, Particle particleB)
+{
+    float2 r = particleB.pos - particleA.pos;
+    float distanceBetweenCenters = length(r);
+    r = r / distanceBetweenCenters;
+    float overlapDistance = (particleA.radius + particleB.radius) - distanceBetweenCenters;
+    if (overlapDistance  > 0) // they've collided
+    {
+        float springForce = springConstant * overlapDistance;
+        return r * springForce;
+    }
+    // otherwise no collision, return no force
+    return float2(0, 0);
+}</code></pre>
+        <!-- <div class="code-top-border" style="background: #f8f8f8; overflow:auto; width:auto; padding:.4em .6em;">
+            <pre style="margin: 0; line-height: 125%;"><span></span><span style="color: #B00040">float2</span><span style="color: #BBB"> </span>CollisionForce(Particle<span style="color: #BBB"> </span>particleA,<span style="color: #BBB"> </span>Particle<span style="color: #BBB"> </span>particleB)
+{
+<span style="color: #BBB">    </span><span style="color: #B00040">float2</span><span style="color: #BBB"> </span>r<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>particleB.pos<span style="color: #BBB"> </span><span style="color: #666">-</span><span style="color: #BBB"> </span>particleA.pos;
+<span style="color: #BBB">    </span><span style="color: #B00040">float</span><span style="color: #BBB"> </span>distanceBetweenCenters<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span><span style="color: #008000">length</span>(r);
+<span style="color: #BBB">    </span>r<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>r<span style="color: #BBB"> </span><span style="color: #666">/</span><span style="color: #BBB"> </span>distanceBetweenCenters;
+<span style="color: #BBB">    </span><span style="color: #B00040">float</span><span style="color: #BBB"> </span>overlapDistance<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>(particleA.radius<span style="color: #BBB"> </span><span style="color: #666">+</span><span style="color: #BBB"> </span>particleB.radius)<span style="color: #BBB"> </span><span style="color: #666">-</span><span style="color: #BBB"> </span>distanceBetweenCenters;
+<span style="color: #BBB">    </span><span style="color: #008000; font-weight: bold">if</span><span style="color: #BBB"> </span>(overlapDistance<span style="color: #BBB">  </span><span style="color: #666">&gt;</span><span style="color: #BBB"> </span><span style="color: #666">0</span>)<span style="color: #BBB"> </span><span style="color: #3D7B7B; font-style: italic">// they&#39;ve collided</span>
+<span style="color: #BBB">    </span>{
+<span style="color: #BBB">        </span><span style="color: #B00040">float</span><span style="color: #BBB"> </span>springForce<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>springConstant<span style="color: #BBB"> </span><span style="color: #666">*</span><span style="color: #BBB"> </span>overlapDistance;
+<span style="color: #BBB">        </span><span style="color: #008000; font-weight: bold">return</span><span style="color: #BBB"> </span>r<span style="color: #BBB"> </span><span style="color: #666">*</span><span style="color: #BBB"> </span>springForce;
+<span style="color: #BBB">    </span>}
+<span style="color: #BBB">    </span><span style="color: #3D7B7B; font-style: italic">// otherwise no collision, return no force</span>
+<span style="color: #BBB">    </span><span style="color: #008000; font-weight: bold">return</span><span style="color: #BBB"> </span><span style="color: #B00040">float2</span>(<span style="color: #666">0</span>,<span style="color: #BBB"> </span><span style="color: #666">0</span>);
+}
+</pre>
+        </div> -->
+
+        <p>
+            This mutual force is applied in opposite directions to the two particles. Looking at the direction of our
+            vector r, the force vector returned by this function is applied to particle B and it’s negative is applied
+            to particle A.
+        </p>
+
+        <img class="fit-image" src="/assets/images/gpu-particle-collisions/particles2d-collide-force.gif"></img>
+
+        <p>
+            Most collisions are not perfectly elastic, so we’d also like a way to introduce some energy loss in the
+            system. Let’s add a damping factor that damps the restoring spring force depending on the relative speed
+            between the two particles.
+        </p>
+
+        <pre><code class="language-hlsl">if (overlapDistance  > 0) // they've collided
+{
+    float springForce = springConstant * overlapDistance;
+    float2 velocityDiff = particleB.vel - particleA.vel;
+    float dampForce = dampingConstant * dot(r, velocityDiff);
+    return r * (springForce - dampForce);
+}</code></pre>
+        <!-- <div style="background: #f8f8f8; overflow:auto; width:auto; padding:.4em .6em;">
+            <pre style="margin: 0; line-height: 125%;"><span></span><span style="color: #008000; font-weight: bold">if</span><span style="color: #BBB"> </span>(overlapDistance<span style="color: #BBB">  </span><span style="color: #666">&gt;</span><span style="color: #BBB"> </span><span style="color: #666">0</span>)<span style="color: #BBB"> </span><span style="color: #3D7B7B; font-style: italic">// they&#39;ve collided</span>
+{
+<span style="color: #BBB">    </span><span style="color: #B00040">float</span><span style="color: #BBB"> </span>springForce<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>springConstant<span style="color: #BBB"> </span><span style="color: #666">*</span><span style="color: #BBB"> </span>overlapDistance;
+<span style="color: #BBB">    </span><span style="color: #B00040">float2</span><span style="color: #BBB"> </span>velocityDiff<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>particleB.vel<span style="color: #BBB"> </span><span style="color: #666">-</span><span style="color: #BBB"> </span>particleA.vel;
+<span style="color: #BBB">    </span><span style="color: #B00040">float</span><span style="color: #BBB"> </span>dampForce<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>dampingConstant<span style="color: #BBB"> </span><span style="color: #666">*</span><span style="color: #BBB"> </span><span style="color: #008000">dot</span>(r,<span style="color: #BBB"> </span>velocityDiff);
+<span style="color: #BBB">    </span><span style="color: #008000; font-weight: bold">return</span><span style="color: #BBB"> </span>r<span style="color: #BBB"> </span><span style="color: #666">*</span><span style="color: #BBB"> </span>(springForce<span style="color: #BBB"> </span><span style="color: #666">-</span><span style="color: #BBB"> </span>dampForce);
+}
+</pre>
+        </div> -->
+
+        <p>
+            We can make collisions appear more rigid and instantaneous by increasing the spring constant. However, if we
+            choose too large of a timestep with a large spring constant, the simulation will tend to become unstable. We
+            can mitigate this by decreasing the timestep and running multiple steps per frame to maintain simulation
+            rate.
+        </p>
+
+        <p>
+            In this simplified model where we don’t define any rotation for the particles, all forces must be along the
+            radial line between the two particle centers. This means that we cannot realistically add any tangential
+            forces like friction between the two particles as this would generate a torque on the particles. If we
+            wanted a system with friction, we would simply give particles an angle and angular velocity and calculate
+            torques in collision interactions (the angle is not used in computations since circles are fully
+            rotationally symmetric).
+        </p>
+
+
+        <h2>Performant Collision Checks</h2>
+
+        <p>
+            But how do we determine which pairs of particles need to be checked for a collision? The simplest way would
+            be to just check every particle against every other particle, or more accurately every unique pair. If we
+            have <code><b>N</b></code> particles, this results in <code><b>N * (N - 1) / 2</b></code> pairs, and hence,
+            collision checks. This quickly becomes very computationally expensive, even when the entire simulation is on
+            the GPU.
+        </p>
+
+        <p>
+            An efficient solution is to subdivide the 2D space into discrete blocks so that we only need to check
+            particles in a given block against particles in neighboring blocks. One common way of discretizing a 2D space
+            is with a <a href="https://en.wikipedia.org/wiki/Quadtree" target="_blank">quadtree</a>, but I chose to use
+            a fixed grid for a simpler implementation.
+        </p>
+
+        <img class="fit-image" src="/assets/images/gpu-particle-collisions/unity_6ngwejjxn7.png"></img>
+
+        <p>
+            The size of each block in the grid depends on the size of the particles. The most efficient setup is to set
+            the block size to diameter of the particles, or if particles vary in size then the block width must be no
+            smaller than the largest diameter. Some inspection will reveal that this setup will ensure that only
+            neighboring blocks can contain overlapping particles.
+        </p>
+
+        <p>
+            This grid is represented on the graphics card as a structured buffer of blocks (or bins). Each bin holds a
+            list of integers referring to particle indices. To conserve memory, we limit each bin to hold a maximum of
+            16 integers, and we also keep track of the current count of particles in each bin. After the particle
+            position update, we calculate which bin contains its position with a simple divide and floor and then append
+            the particle’s index to that bin and increase the bin count. As with any value that can be accessed and
+            written to by multiple threads on the GPU, we need to use some interlocked functions like hlsl’s
+            <code>InterlockedAdd()</code> and <code>InterlockedMin()</code> functions to ensure atomic operations when
+            multiple particles are being added to the same bin concurrently.
+        </p>
+
+        <p>
+            If the density of particles ever becomes so great that there are more than 16 particles within the same
+            block, we simply miss some collisions. But this is a rare occurrence, and if it does happen, the pressure
+            and speed of the particles in that region are so great that the chaos hides the inaccuracies.
+        </p>
+
+        <p>
+            We can now run a GPU dispatch over all of the pairs of neighboring bins and only run collision checks on
+            particles in those bins. This vastly reduces the number of collision checks and boosts performance
+            significantly.
+        </p>
+
+        <p>
+            We now have a system set up to simulate particle collisions very efficiently. We calculate the collision
+            forces on each particle in the manner described above and this force is added to the given particle’s force
+            variable. Since this force variable can be written to concurrently when a given particle has multiple
+            simultaneous collisions, it too must be updated with an InterlockedAdd(), and thus must be of type int2
+            since we can only do interlocked addition on integers. We can then update the velocity and position of each
+            particle using simple Euler integration.
+        </p>
+
+        <p>
+            Particles are drawn with Unity’s <code>Graphics.DrawMeshInstancedIndirect()</code>. This allows us to draw a
+            large number of meshes (in this case simple quads with a circle texture) in a single draw call. The method
+            simply tells the GPU to draw the same mesh a given number of times and we can pass a buffer that holds all
+            of the particle positions into a custom shader to specify where to render each quad.
+        </p>
+
+        <figure>
+            <img class="fit-image" src="/assets/images/gpu-particle-collisions/granular_gpu_3g9rqcc8rw.png"></img>
+            <figcaption>Particles pack into crystal lattices with imperfections like linear dislocations and holes.
+            </figcaption>
+        </figure>
+
+        <div style="padding:56.25% 0 0 0;position:relative;"><iframe
+                src="https://player.vimeo.com/video/1029007839?badge=0&amp;autopause=0&amp;player_id=0&amp;app_id=58479"
+                frameborder="0"
+                allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share"
+                referrerpolicy="strict-origin-when-cross-origin"
+                style="position:absolute;top:0;left:0;width:100%;height:100%;"
+                title="2D Particle Collisions Clip 1"></iframe></div>
+        <script src="https://player.vimeo.com/api/player.js"></script>
+
     </article>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/components/prism-core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/plugins/autoloader/prism-autoloader.min.js"></script>
 </main>

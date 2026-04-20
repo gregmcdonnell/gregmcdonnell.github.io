@@ -1,8 +1,23 @@
 [
   {
+    "title": "Solar System Simulation",
+    "date": "2026-02",
+    "description": "",
+    "tags": [
+      "simulation",
+      "physics",
+      "orbits",
+      "space",
+      "gravity"
+    ],
+    "image": "/assets/images/solar-system/solar-system-orbits.png",
+    "url": "/projects/solar-system",
+    "slug": "solar-system"
+  },
+  {
     "title": "Coupled Pendulums",
-    "date": "2026-03",
-    "description": "A quick look at the physics of a chain of pendulums coupled together.",
+    "date": "2025-06",
+    "description": "A quick javascript simulation of a line of pendulums coupled with angular springs.",
     "tags": [
       "simulation",
       "physics",
@@ -15,7 +30,7 @@
   },
   {
     "title": "Cloth Simulation",
-    "date": "2025-07",
+    "date": "2024-05",
     "description": "Simulating cloth with a grid of particles connected by springs.",
     "tags": [
       "simulation",
@@ -36,12 +51,13 @@
       "simulation",
       "physics",
       "particles",
+      "fluid",
       "collision",
       "gpu",
       "graphics",
       "unity"
     ],
-    "image": "",
+    "image": "/assets/images/gpu-particle-collisions/gpu-particles-1.png",
     "url": "/projects/gpu-particle-collisions",
     "slug": "gpu-particle-collisions"
   }

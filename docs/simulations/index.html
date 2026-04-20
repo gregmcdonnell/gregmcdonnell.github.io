@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="/style.css" />
   <style>
     /* ── Simulation card ── */
-    .sim-card {
+    /* .sim-card {
       display: grid;
       grid-template-columns: 1fr auto;
       gap: 0.75rem;
@@ -71,7 +71,8 @@
       gap: 0.35rem;
       flex-wrap: wrap;
       margin-top: 0.5rem;
-    }
+    } */
+    
   </style>
 </head>
 <body>
@@ -91,18 +92,17 @@
   <div class="page-header">
     <p class="page-label">Catalogue</p>
     <h1>Simulations</h1>
-    <p>All simulations found on this site, linked back to its parent project. Filter by software or method.</p>
+    <p>All interactive simulations found on this site.</p>
   </div>
 
   <!-- Filter + list -->
   <main>
-    <div>Page under construction</div>
-    <!-- <div class="filter-nav" id="filter-nav">
+    <div class="filter-nav" id="filter-nav">
       <button class="filter-btn active" data-filter="all">All</button>
     </div>
     <div id="sim-list">
       <p class="loading-msg">Loading…</p>
-    </div> -->
+    </div>
   </main>
 
   <!-- Footer -->
@@ -123,8 +123,8 @@
       const list = document.getElementById('sim-list');
       try {
         const [simRes, projRes] = await Promise.all([
-          fetch('/data/simulations.json'),
-          fetch('/data/projects.json')
+          fetch('/simulations/simulations.json'),
+          fetch('/projects/manifest.json')
         ]);
         allSims = await simRes.json();
         allProjects = await projRes.json();
@@ -147,7 +147,7 @@
 
         renderSims(allSims);
       } catch (e) {
-        list.innerHTML = '<p class="error-msg">Could not load simulations data. Serve from a local server.</p>';
+        list.innerHTML = '<p class="error-msg">Could not load simulations data.</p>';
       }
     }
 
@@ -168,22 +168,36 @@
       }
 
       list.innerHTML = sims.map((s, i) => {
-        const project = allProjects.find(p => p.id === s.project_id);
+        const project = allProjects.find(p => p.slug === s.slug);
+        // <div class="sim-card stagger-${Math.min(i + 1, 6)}">
+        //     <div>
+        //       <div class="sim-meta">
+        //         <span class="sim-date">${s.date}</span>
+        //         <span class="sim-software">${s.software}</span>
+        //       </div>
+        //       <div class="sim-title">${s.title}</div>
+        //       <div class="sim-desc">${s.description}</div>
+        //       <div class="sim-tags">
+        //         ${(s.tags || []).map(t => `<span class="tag">${t}</span>`).join('')}
+        //       </div>
+        //       ${project ? `<a class="sim-project-link" href="${project.url}">↗ ${project.title}</a>` : ''}
+        //     </div>
+        //   </div>
+
+            // 
         return `
-          <div class="sim-card stagger-${Math.min(i + 1, 6)}">
-            <div>
-              <div class="sim-meta">
-                <span class="sim-date">${s.date}</span>
-                <span class="sim-software">${s.software}</span>
-              </div>
-              <div class="sim-title">${s.title}</div>
-              <div class="sim-desc">${s.description}</div>
-              <div class="sim-tags">
+          <a class="project-card project-card-i stagger-${Math.min(i + 1, 6)}" href="${s.url}">
+            <img class="project-card__thumb" src="${s.url}/thumbnail.png" alt="${s.title} preview" loading="lazy">
+            <div class="project-card__content">
+              <div class="project-meta">
+                <span class="project-date">${s.date}</span>
                 ${(s.tags || []).map(t => `<span class="tag">${t}</span>`).join('')}
               </div>
-              ${project ? `<a class="sim-project-link" href="${project.url}">↗ ${project.title}</a>` : ''}
+              <div class="project-title">${s.title}</div>
+              <div class="project-desc">${s.description}</div>
             </div>
-          </div>
+            <span class="arrow">Run →</span>
+          </a>
         `;
       }).join('');
     }

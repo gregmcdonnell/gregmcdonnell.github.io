@@ -1,4 +1,14 @@
 [
-  "gpu-particle-collisions",
-  "coupled-pendulums"
+  {
+    "slug": "gpu-particle-collisions",
+    "type": "project"
+  },
+  {
+    "slug": "coupled-pendulums",
+    "type": "project"
+  },
+  {
+    "slug": "particles-gpu-js",
+    "type": "sim"
+  }
 ]

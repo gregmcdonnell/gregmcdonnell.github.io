@@ -1,0 +1,72 @@
+[
+  {
+    "title": "Piano-Keyboard",
+    "description": "I wanted a way to play piano on my laptop, and ended up diving into synthesizer programming.",
+    "date": "2026-01",
+    "slug": "piano-keyboard",
+    "url": "/simulations/piano-keyboard",
+    "project_url": "",
+    "tags": "",
+    "software": ""
+  },
+  {
+    "title": "GPU Particle Simulation",
+    "description": "Simulating non-interacting particles entirely on the GPU.",
+    "date": "2025-09",
+    "slug": "particles-gpu-js",
+    "url": "/simulations/particles-gpu-js",
+    "project_url": "",
+    "tags": "",
+    "software": ""
+  },
+  {
+    "title": "Coupled Pendulums",
+    "description": "A quick javascript simulation of a line of pendulums coupled with angular springs.",
+    "date": "2025-06",
+    "slug": "coupled-pendulums",
+    "url": "/simulations/coupled-pendulums",
+    "project_url": "/projects/coupled-pendulums",
+    "tags": [
+      "simulation",
+      "physics",
+      "pendulums",
+      "spring"
+    ],
+    "software": ""
+  },
+  {
+    "title": "Coupled Pendulums - Circular",
+    "description": "Coupled pendulums arranged in a closed loop.",
+    "date": "2025-06",
+    "slug": "coupled-pendulums",
+    "url": "/simulations/coupled-pendulums/circular",
+    "project_url": "/projects/coupled-pendulums",
+    "tags": [
+      "simulation",
+      "physics",
+      "pendulums",
+      "spring"
+    ],
+    "software": ""
+  },
+  {
+    "title": "Simple Cloth",
+    "description": "A simple cloth physics sim to help learn three js.",
+    "date": "2025",
+    "slug": "simple-cloth",
+    "url": "/simulations/simple-cloth",
+    "project_url": "",
+    "tags": "",
+    "software": ""
+  },
+  {
+    "title": "Branching Trees",
+    "description": "",
+    "date": "2022",
+    "slug": "branching-trees",
+    "url": "/simulations/branching-trees",
+    "project_url": "",
+    "tags": "",
+    "software": ""
+  }
+]
