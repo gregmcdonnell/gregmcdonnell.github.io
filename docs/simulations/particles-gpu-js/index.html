@@ -27,7 +27,8 @@
             "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
         }
     }
-</script>
+    </script>
+
     <script type="module">
         import * as THREE from "three";
         import { GPUComputationRenderer } from "three/addons/misc/GPUComputationRenderer.js";
@@ -44,102 +45,17 @@
 
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(60, W / H, 0.1, 1000);
-        camera.position.z = 5;
+        camera.position.z = 4;
+        camera.position.y = 2
         const orbitControls = new OrbitControls(camera, renderer.domElement);
         orbitControls.update();
 
         const gui = new GUI();
         const guiParams = {
             attractorSpeed: 1.0,
+            dt: 0.26
         }
         let time = 0;
-
-        // ---- GPU COMPUTATION SETUP ----
-        const SIZE = 512; // => SIZE*SIZE particles (16384 here)
-        const gpuCompute = new GPUComputationRenderer(SIZE, SIZE, renderer);
-
-        // Position + velocity state
-        const dtPosition = gpuCompute.createTexture();
-        const dtVelocity = gpuCompute.createTexture();
-        const tex3Width = 64, tex3Height = 64, tex3Depth = 64;
-        const tex3Size = tex3Width * tex3Height * tex3Depth;
-        const tex3Data = new Float32Array(tex3Size * 4);
-        const texture3D = new THREE.Data3DTexture(tex3Data, tex3Width, tex3Height, tex3Depth);
-        texture3D.format = THREE.RGBAFormat;
-        texture3D.type = THREE.FloatType;
-        texture3D.minFilter = THREE.LinearFilter;
-        texture3D.magFilter = THREE.LinearFilter;
-
-        let dataIndex = 0;
-        const halfDims = new THREE.Vector3(tex3Width, tex3Height, tex3Depth).multiplyScalar(0.5);
-        const circleRadius = 0.5;
-        function distanceToCurve(p) {
-            const d2 = new THREE.Vector2(new THREE.Vector2(p.x, p.z).length() - circleRadius, p.y);
-            return d2.length();
-        }
-        function getDistanceGradient(p, h = 1e-4) {
-            const d = distanceToCurve(p);
-            const dx = distanceToCurve(new THREE.Vector3(p.x + h, p.y, p.z)) - d;
-            const dy = distanceToCurve(new THREE.Vector3(p.x, p.y + h, p.z)) - d;
-            const dz = distanceToCurve(new THREE.Vector3(p.x, p.y, p.z + h)) - d;
-            const grad = new THREE.Vector3(dx, dy, dz).normalize().multiplyScalar(d);
-            return grad;
-        }
-        for (let k = 0; k < tex3Depth; k++) {
-            for (let j = 0; j < tex3Height; j++) {
-                for (let i = 0; i < tex3Width; i++) {
-                    const worldPoint = new THREE.Vector3(i,j,k).sub(halfDims).multiplyScalar(2 / tex3Width);
-                    const distanceGrad = getDistanceGradient(worldPoint);
-                    tex3Data[dataIndex] = distanceGrad.x;
-                    tex3Data[dataIndex + 1] = distanceGrad.y;
-                    tex3Data[dataIndex + 2] = distanceGrad.z;
-                    tex3Data[dataIndex + 3] = (i == 0 || i == tex3Width - 1 || j == 0 || j == tex3Height - 1 || k == 0 || k == tex3Depth - 1) ? 1.0 : 0.0;
-                    dataIndex += 4;
-                }
-            }
-        }
-        texture3D.needsUpdate = true;
-
-        const initialConditions = {
-            initialVelocity: 0.02,
-            initialPosition: 'Trefoil',
-            rotationSpeed: 0.2,
-        }
-        const icFolder = gui.addFolder('Initial Conditions');
-        icFolder.add(initialConditions, 'initialVelocity', 0, 0.1).name('Initial Velocity');
-        icFolder.add(initialConditions, 'initialPosition', ['Trefoil', 'Random']).name('Initial Position');
-        icFolder.add(initialConditions, 'rotationSpeed', 0, 10).name('Rotation Speed');
-
-        // Init random positions/velocities
-        function fillTextures(positionTex, velocityTex) {
-            const pos = positionTex.image.data;
-            const vel = velocityTex.image.data;
-            const isTrefoil = initialConditions.initialPosition == 'Trefoil';
-            for (let i = 0; i < pos.length; i += 4) {
-                const vec = new THREE.Vector3();
-                vec.randomDirection()
-                if (isTrefoil) {
-                    vec.multiplyScalar(Math.pow(Math.random(), 1/3) * 0.3);
-                    const t = Math.random() * Math.PI * 2;
-                    const parametricVec = new THREE.Vector3(Math.sin(t) + 2 * Math.sin(2 * t), Math.cos(t) - 2 * Math.cos(2.0 * t), -Math.sin(3.0 * t));
-                    vec.add(parametricVec);
-                }
-                pos[i + 0] = vec.x;
-                pos[i + 1] = vec.y;
-                pos[i + 2] = vec.z;
-                pos[i + 3] = 1.0;
-                const rot = vec.clone().cross(new THREE.Vector3(0, 1, 0));
-                rot.multiplyScalar(initialConditions.rotationSpeed);
-                vec.randomDirection().multiplyScalar(initialConditions.initialVelocity);
-                vec.add(rot);
-                vel[i + 0] = vec.x;
-                vel[i + 1] = vec.y;
-                vel[i + 2] = vec.z;
-                vel[i + 3] = 0.0;
-            }
-            positionTex.needsUpdate = true;
-            velocityTex.needsUpdate = true;
-        }
 
 
         // Shaders for simulation
@@ -181,13 +97,14 @@ void main() {
     vec3 force = attractorStrength * normalize(dir);
     #else
     float mag = length(dir);
-    vec3 force = 0.005 / (mag*mag*mag) * dir;
+    vec3 force = attractorStrength * 0.005 / (mag*mag*mag) * dir;
     #endif
     vec3 tangent = normalize(cross(pos, vec3(0.0, 1.0, 0.0)));
     float tangentSpeed = dot(vel.xyz, tangent);
     vec3 posxz = vec3(pos.x, 0.0, pos.z);
     force += rotationForce * tangent; // - tangentSpeed * tangentSpeed / dot(posxz,posxz) * posxz;
-    vel.xyz += (force - vel.xyz * damping * dt) * dt;
+    // vel.xyz += (force - vel.xyz * damping * dt) * dt;
+    vel.xyz += (force - vel.xyz * damping) * dt;
     // vel.xyz *= damping;
     // vel.w = grad.w;
 
@@ -209,84 +126,7 @@ uniform float dt;
   }
 `;
 
-        // Create variables in GPUComputationRenderer
-        const velVar = gpuCompute.addVariable("textureVelocity", velocityFragment, dtVelocity);
-        const posVar = gpuCompute.addVariable("texturePosition", positionFragment, dtPosition);
-
-        gpuCompute.setVariableDependencies(velVar, [posVar, velVar]);
-        gpuCompute.setVariableDependencies(posVar, [posVar, velVar]);
-
-        function resetSim()
-        {
-            fillTextures(dtPosition, dtVelocity);
-            
-            gpuCompute.renderTexture(dtPosition, posVar.renderTargets[0]);
-            gpuCompute.renderTexture(dtPosition, posVar.renderTargets[1]);
-            gpuCompute.renderTexture(dtVelocity, velVar.renderTargets[0]);
-            gpuCompute.renderTexture(dtVelocity, velVar.renderTargets[1]);
-            time = 0;
-        }
-
-        fillTextures(dtPosition, dtVelocity);
-
-        velVar.material.uniforms.distanceField = { value: texture3D };
-        velVar.material.uniforms.distanceField.value = texture3D;
-        velVar.material.uniforms.time = { value: 0.0 };
-        guiParams.dt = 0.26;
-        velVar.material.uniforms.dt = { value: guiParams.dt };
-        posVar.material.uniforms.dt = { value: guiParams.dt };
-        velVar.material.uniforms.damping = { value: 0.1 };
-        velVar.material.uniforms.rotationForce = { value: 0.0 };
-        velVar.material.uniforms.attractorStrength = { value: 0.04 };
-        velVar.material.uniforms.circleNormal = { value: new THREE.Vector3(0,1,0) };
-        velVar.material.defines.GRAV_TYPE = 0;
-        gui.add(velVar.material.defines, 'GRAV_TYPE', {Constant: 0, InverseSquare: 1}).name('Gravity Type').onChange(() => {
-            velVar.material.needsUpdate = true;
-        });
-        gui.add(guiParams, 'dt', 0, 1).name('dt').onChange((value) => {
-            posVar.material.uniforms.dt.value = value;
-            velVar.material.uniforms.dt.value = value;
-        });
-        gui.add(velVar.material.uniforms.damping, 'value', 0, 10).name('Damping');
-        gui.add(velVar.material.uniforms.attractorStrength, 'value', 0, 10).name('Attractor Strength');
-        gui.add(velVar.material.uniforms.rotationForce, 'value', 0, .05).name('Rotation Force');
-        guiParams.circleEuler = new THREE.Vector3(0,0,0);
-        gui.add(guiParams.circleEuler, 'x', 0, 6.28).name('CircleEuler X').onChange(() => {
-            velVar.material.uniforms.circleNormal.value = new THREE.Vector3(0,1,0).applyEuler(guiParams.circleEuler);
-        });
-        gui.add(guiParams.circleEuler, 'y', 0, 6.28).name('CircleEuler Y').onChange(() => {
-            velVar.material.uniforms.circleNormal.value = new THREE.Vector3(0,1,0).applyEuler(guiParams.circleEuler);
-        });
-        gui.add(guiParams.circleEuler, 'z', 0, 6.28).name('CircleEuler Z').onChange(() => {
-            velVar.material.uniforms.circleNormal.value = new THREE.Vector3(0,1,0).applyEuler(guiParams.circleEuler);
-        });
-        const error = gpuCompute.init();
-        if (error !== null) {
-            console.error(error);
-        }
-
-        // ---- PARTICLE RENDERING ----
-        const geometry = new THREE.BufferGeometry();
-        const positions = new Float32Array(SIZE * SIZE * 3);
-        const uvs = new Float32Array(SIZE * SIZE * 2);
-
-        let p = 0, q = 0;
-        for (let i = 0; i < SIZE; i++) {
-            for (let j = 0; j < SIZE; j++) {
-                positions[p++] = 0; // will be replaced in shader
-                positions[p++] = 0;
-                positions[p++] = 0;
-
-                uvs[q++] = i / (SIZE - 1);
-                uvs[q++] = j / (SIZE - 1);
-            }
-        }
-
-        geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-        geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
-        geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 100);
-
-        const material = new THREE.ShaderMaterial({
+        const pointMaterial = new THREE.ShaderMaterial({
             uniforms: {
                 texturePosition: { value: null },
                 textureVelocity: { value: null },
@@ -298,50 +138,275 @@ uniform float dt;
                 POINT_TYPE: 0,
             },
             vertexShader: /* glsl */`
-    uniform sampler2D texturePosition;
-    uniform float pointSize;
-    out float vData;
-    void main() {
-        vec4 pos = texture(texturePosition, uv);
-        vec4 mvPosition = modelViewMatrix * vec4(pos.xyz, 1.0);
-        gl_Position = projectionMatrix * mvPosition;
-        vData = pos.w;
-        
-        #if POINT_TYPE == 0
-            // scale with distance from camera
-            gl_PointSize = min(pointSize * (5.0 / -mvPosition.z), 20.0);
-        #else
-            // fixed size
-            gl_PointSize = pointSize;
-        #endif
-    }
-  `,
+                uniform sampler2D texturePosition;
+                uniform float pointSize;
+                out float vData;
+                void main() {
+                    vec4 pos = texture(texturePosition, uv);
+                    vec4 mvPosition = modelViewMatrix * vec4(pos.xyz, 1.0);
+                    gl_Position = projectionMatrix * mvPosition;
+                    vData = pos.w;
+                    
+                    #if POINT_TYPE == 0
+                        // scale with distance from camera
+                        gl_PointSize = min(pointSize * (5.0 / -mvPosition.z), 20.0);
+                    #else
+                        // fixed size
+                        gl_PointSize = pointSize;
+                    #endif
+                }
+            `,
             fragmentShader: /* glsl */`
-    uniform float brightness;
-    uniform float colorScale;
+                uniform float brightness;
+                uniform float colorScale;
 
-    in float vData;
-    void main() {
-        float d = length(gl_PointCoord - 0.5);
-        if (d > 0.5) discard;
+                in float vData;
+                void main() {
+                    float d = length(gl_PointCoord - 0.5);
+                    if (d > 0.5) discard;
 
-        gl_FragColor = vec4(vData * colorScale, 0.7, 0.2, (0.5 - d) * brightness);
-    }
-  `,
+                    gl_FragColor = vec4(vData * colorScale, 0.7, 0.2, (0.5 - d) * brightness);
+                }
+            `,
             blending: THREE.AdditiveBlending,
             depthWrite: false,
             transparent: true
         });
 
-        const particles = new THREE.Points(geometry, material);
-        scene.add(particles);
-
-        gui.add(material.uniforms.pointSize, 'value', 0, 20).name('Point Size');
-        gui.add(material.defines, 'POINT_TYPE', {'Perspective': 0, 'Fixed Size': 1}).name('Point Type').onChange(function(value) {
-            material.needsUpdate = true;
+    
+        const sizes = [
+            [128,128],
+            [256,256],
+            [512,512],
+            [1024,512],
+            [1024,1024],
+            [2048,1024],
+            [2048,2048]
+        ]
+        const numFormatter = new Intl.NumberFormat('en-US', {
+            notation: 'compact',
+            // maximumFractionDigits: 0,
         });
-        gui.add(material.uniforms.brightness, 'value', 0, 2).name('Brightness');
-        gui.add(material.uniforms.colorScale, 'value', 0, 2).name('Color Scale');
+        const sizeMap = Object.fromEntries(sizes.map(size => [numFormatter.format(size[0] * size[1]), size]));
+        
+        const initialConditions = {
+            nParticles: sizes[3],
+            initialPosition: 'Trefoil',
+            randomVelocity: 0.02,
+            rotationSpeed: 0.2,
+        }
+        
+        
+        let gpuCompute, posVar, velVar;
+        let dtPosition, dtVelocity;
+        let particleMesh;
+
+        function initSimulation(sizeX, sizeY) {
+            disposeSimulation();
+
+            // simConfig.size = size;
+
+            gpuCompute = new GPUComputationRenderer(sizeX, sizeY, renderer);
+
+            dtPosition = gpuCompute.createTexture();
+            dtVelocity = gpuCompute.createTexture();
+
+            initState(dtPosition, dtVelocity);
+
+            velVar = gpuCompute.addVariable("textureVelocity", velocityFragment, dtVelocity);
+            posVar = gpuCompute.addVariable("texturePosition", positionFragment, dtPosition);
+
+            gpuCompute.setVariableDependencies(velVar, [posVar, velVar]);
+            gpuCompute.setVariableDependencies(posVar, [posVar, velVar]);
+            
+
+            initVariableUniforms();
+
+            const error = gpuCompute.init();
+            if (error) console.error(error);
+
+            initParticleGeometry(sizeX, sizeY);
+        }
+
+        function disposeSimulation() {
+            if (!gpuCompute) return;
+
+            gpuCompute.dispose();
+
+            if (particleMesh) {
+                scene.remove(particleMesh);
+                particleMesh.geometry.dispose();
+                particleMesh.material.dispose();
+            }
+        }
+
+        // Initialize positions/velocities
+        function initState(positionTex, velocityTex) {
+            const pos = positionTex.image.data;
+            const vel = velocityTex.image.data;
+            const isTrefoil = initialConditions.initialPosition == 'Trefoil';
+            for (let i = 0; i < pos.length; i += 4) {
+                const vec = new THREE.Vector3();
+                vec.randomDirection()
+                if (isTrefoil) {
+                    vec.multiplyScalar(Math.pow(Math.random(), 1/3) * 0.3);
+                    const t = Math.random() * Math.PI * 2;
+                    const parametricVec = new THREE.Vector3(Math.sin(t) + 2 * Math.sin(2 * t), Math.cos(t) - 2 * Math.cos(2.0 * t), -Math.sin(3.0 * t));
+                    vec.add(parametricVec);
+                }
+                pos[i + 0] = vec.x;
+                pos[i + 1] = vec.y;
+                pos[i + 2] = vec.z;
+                pos[i + 3] = 1.0;
+                const rot = vec.clone().cross(new THREE.Vector3(0, 1, 0));
+                rot.multiplyScalar(initialConditions.rotationSpeed);
+                vec.randomDirection().multiplyScalar(initialConditions.randomVelocity);
+                vec.add(rot);
+                vel[i + 0] = vec.x;
+                vel[i + 1] = vec.y;
+                vel[i + 2] = vec.z;
+                vel[i + 3] = 0.0;
+            }
+            positionTex.needsUpdate = true;
+            velocityTex.needsUpdate = true;
+        }
+
+        function initVariableUniforms() {
+            // velVar.material.uniforms.distanceField = { value: texture3D };
+            // velVar.material.uniforms.distanceField.value = texture3D;
+            velVar.material.uniforms.time = { value: 0.0 };
+            velVar.material.uniforms.dt = { value: guiParams.dt };
+            posVar.material.uniforms.dt = { value: guiParams.dt };
+            velVar.material.uniforms.damping = { value: 0.1 };
+            velVar.material.uniforms.rotationForce = { value: 0.0 };
+            velVar.material.uniforms.attractorStrength = { value: 0.1 };
+            velVar.material.uniforms.circleNormal = { value: new THREE.Vector3(0,1,0) };
+            velVar.material.defines.GRAV_TYPE = 0;
+        }
+
+        function resetSim()
+        {
+            initState(dtPosition, dtVelocity);
+            
+            gpuCompute.renderTexture(dtPosition, posVar.renderTargets[0]);
+            gpuCompute.renderTexture(dtPosition, posVar.renderTargets[1]);
+            gpuCompute.renderTexture(dtVelocity, velVar.renderTargets[0]);
+            gpuCompute.renderTexture(dtVelocity, velVar.renderTargets[1]);
+            time = 0;
+        }
+
+        // ---- PARTICLE RENDERING ----
+        function initParticleGeometry(sizeX, sizeY) {
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(sizeX * sizeY * 3);
+            const uvs = new Float32Array(sizeX * sizeY * 2);
+
+            let p = 0, q = 0;
+            for (let i = 0; i < sizeX; i++) {
+                for (let j = 0; j < sizeY; j++) {
+                    positions[p++] = 0; // will be replaced in shader
+                    positions[p++] = 0;
+                    positions[p++] = 0;
+
+                    uvs[q++] = i / (sizeX - 1);
+                    uvs[q++] = j / (sizeY - 1);
+                }
+            }
+
+            geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+            geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 100);
+
+            particleMesh = new THREE.Points(geometry, pointMaterial);
+            scene.add(particleMesh);
+        }
+
+        initSimulation(initialConditions.nParticles[0], initialConditions.nParticles[1]);
+        
+        // const tex3Width = 64, tex3Height = 64, tex3Depth = 64;
+        // const tex3Size = tex3Width * tex3Height * tex3Depth;
+        // const tex3Data = new Float32Array(tex3Size * 4);
+        // const texture3D = new THREE.Data3DTexture(tex3Data, tex3Width, tex3Height, tex3Depth);
+        // texture3D.format = THREE.RGBAFormat;
+        // texture3D.type = THREE.FloatType;
+        // texture3D.minFilter = THREE.LinearFilter;
+        // texture3D.magFilter = THREE.LinearFilter;
+
+        // let dataIndex = 0;
+        // const halfDims = new THREE.Vector3(tex3Width, tex3Height, tex3Depth).multiplyScalar(0.5);
+        // const circleRadius = 0.5;
+        // function distanceToCurve(p) {
+        //     const d2 = new THREE.Vector2(new THREE.Vector2(p.x, p.z).length() - circleRadius, p.y);
+        //     return d2.length();
+        // }
+        // function getDistanceGradient(p, h = 1e-4) {
+        //     const d = distanceToCurve(p);
+        //     const dx = distanceToCurve(new THREE.Vector3(p.x + h, p.y, p.z)) - d;
+        //     const dy = distanceToCurve(new THREE.Vector3(p.x, p.y + h, p.z)) - d;
+        //     const dz = distanceToCurve(new THREE.Vector3(p.x, p.y, p.z + h)) - d;
+        //     const grad = new THREE.Vector3(dx, dy, dz).normalize().multiplyScalar(d);
+        //     return grad;
+        // }
+        // for (let k = 0; k < tex3Depth; k++) {
+        //     for (let j = 0; j < tex3Height; j++) {
+        //         for (let i = 0; i < tex3Width; i++) {
+        //             const worldPoint = new THREE.Vector3(i,j,k).sub(halfDims).multiplyScalar(2 / tex3Width);
+        //             const distanceGrad = getDistanceGradient(worldPoint);
+        //             tex3Data[dataIndex] = distanceGrad.x;
+        //             tex3Data[dataIndex + 1] = distanceGrad.y;
+        //             tex3Data[dataIndex + 2] = distanceGrad.z;
+        //             tex3Data[dataIndex + 3] = (i == 0 || i == tex3Width - 1 || j == 0 || j == tex3Height - 1 || k == 0 || k == tex3Depth - 1) ? 1.0 : 0.0;
+        //             dataIndex += 4;
+        //         }
+        //     }
+        // }
+        // texture3D.needsUpdate = true;
+
+        const icFolder = gui.addFolder('Initial Conditions');
+        icFolder.add(initialConditions, 'nParticles', sizeMap).onChange((size) => {
+            console.log(size);
+            initSimulation(size[0], size[1]);
+        });
+        icFolder.add(initialConditions, 'initialPosition', ['Trefoil', 'Random']).name('Initial Position');
+        icFolder.add(initialConditions, 'randomVelocity', 0, 0.2).name('Random Velocity');
+        icFolder.add(initialConditions, 'rotationSpeed', 0, 1).name('Rotation Speed');
+
+
+        gui.add(velVar.material.defines, 'GRAV_TYPE', {Constant: 0, InverseSquare: 1}).name('Gravity Type').onChange(() => {
+            velVar.material.needsUpdate = true;
+        });
+        gui.add(guiParams, 'dt', 0, 1).name('dt').onChange((value) => {
+            posVar.material.uniforms.dt.value = value;
+            velVar.material.uniforms.dt.value = value;
+        });
+        guiParams.damping = velVar.material.uniforms.damping.value;
+        guiParams.attractorStrength = velVar.material.uniforms.attractorStrength.value;
+        guiParams.dampAttract = 1;
+        function changeDampAttract() {
+            velVar.material.uniforms.damping.value = guiParams.damping * guiParams.dampAttract;
+            velVar.material.uniforms.attractorStrength.value = guiParams.attractorStrength * guiParams.dampAttract;
+        }
+        gui.add(guiParams, 'damping', 0, 1).name('Damping').onChange(changeDampAttract);
+        gui.add(guiParams, 'attractorStrength', 0, 1).name('Attractor Strength').onChange(changeDampAttract);
+        gui.add(guiParams, 'dampAttract', 0, 10).onChange(changeDampAttract);
+        gui.add(velVar.material.uniforms.rotationForce, 'value', 0, .05).name('Rotation Force');
+        guiParams.circleEuler = new THREE.Vector3(0,0,0);
+        gui.add(guiParams.circleEuler, 'x', 0, .5).name('Attractor X Rot').onChange(() => {
+            // velVar.material.uniforms.circleNormal.value = new THREE.Vector3(0,1,0).applyEuler(guiParams.circleEuler);
+        });
+        gui.add(guiParams.circleEuler, 'y', 0, .5).name('Attractor Y Rot').onChange(() => {
+            // velVar.material.uniforms.circleNormal.value = new THREE.Vector3(0,1,0).applyEuler(guiParams.circleEuler);
+        });
+        gui.add(guiParams.circleEuler, 'z', 0, .5).name('Attractor Z Rot').onChange(() => {
+            // velVar.material.uniforms.circleNormal.value = new THREE.Vector3(0,1,0).applyEuler(guiParams.circleEuler);
+        });
+
+        gui.add(pointMaterial.uniforms.pointSize, 'value', 0, 20).name('Point Size');
+        gui.add(pointMaterial.defines, 'POINT_TYPE', {'Perspective': 0, 'Fixed Size': 1}).name('Point Type').onChange(function(value) {
+            pointMaterial.needsUpdate = true;
+        });
+        gui.add(pointMaterial.uniforms.brightness, 'value', 0, 2).name('Brightness');
+        gui.add(pointMaterial.uniforms.colorScale, 'value', 0, 2).name('Color Scale');
         guiParams.reset = resetSim;
         // gui.add(guiParams, 'attractorSpeed', 0, 50).name('Attractor Speed');
         gui.add(guiParams, 'reset').name('Reset');
@@ -362,12 +427,16 @@ uniform float dt;
             if (!userInput.paused) {
                 time += guiParams.dt;
                 velVar.material.uniforms.time.value = time;
-                velVar.material.uniforms.circleNormal.value.applyEuler(new THREE.Euler().setFromVector3(guiParams.circleEuler.clone().multiplyScalar(guiParams.dt)));
+                const q = new THREE.Quaternion().setFromAxisAngle(guiParams.circleEuler.clone(), guiParams.dt);
+                velVar.material.uniforms.circleNormal.value.applyQuaternion(q);
+                // const euler = new THREE.Euler().setFromVector3(guiParams.circleEuler.clone().multiplyScalar(guiParams.dt));
+                // euler.order = 'YXZ';
+                // velVar.material.uniforms.circleNormal.value.applyEuler(euler);
 
                 gpuCompute.compute();
 
-                material.uniforms.texturePosition.value = gpuCompute.getCurrentRenderTarget(posVar).texture;
-                material.uniforms.textureVelocity.value = gpuCompute.getCurrentRenderTarget(velVar).texture;
+                pointMaterial.uniforms.texturePosition.value = gpuCompute.getCurrentRenderTarget(posVar).texture;
+                pointMaterial.uniforms.textureVelocity.value = gpuCompute.getCurrentRenderTarget(velVar).texture;
             }
             renderer.render(scene, camera);
         }
