@@ -1,3 +1,4 @@
 # Ignore node_modules (dependencies)
 node_modules/
 docs/ignore/
+docs/simulations/pv-power-plant/nsrdb_fetch.py
