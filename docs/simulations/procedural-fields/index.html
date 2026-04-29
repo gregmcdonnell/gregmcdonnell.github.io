@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Grass</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        color: white;
+        font-family: sans-serif;
+      }
+  
+      canvas {
+        display: block;
+      }
+
+      .info {
+        position: absolute;
+        top: 10px;
+        width: 100%;
+        text-align: left;
+        color: #ffffff;
+        font-family: Arial, sans-serif;
+        font-size: 20px;
+      }
+    </style>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.min.js"></script> -->
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+                "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"
+                
+            }
+        }
+    </script>
+
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/stats.js/r17/Stats.min.js"></script> -->
+    <script type="module" src="./main.js?v=3"></script>
+  </head>
+  <body>
+    <div id="info" class="info" style="top: 50px"></div>
+  </body>
+</html>
