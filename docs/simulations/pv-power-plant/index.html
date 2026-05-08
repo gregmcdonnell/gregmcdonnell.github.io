@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SolarSim — 1 MWp Plant Simulation</title>
+  <meta name="description" content="Simulating a photovoltaic solar array power plant.">
+  <meta name="date" content="2026-05">
+  <title>Solar Plant Simulation</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
@@ -11,6 +13,7 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
   <script src="https://unpkg.com/suncalc@1.9.0/suncalc.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
 
   <style>
     /* ── Design tokens ─────────────────────────────────────────── */
@@ -239,45 +242,46 @@
       color: var(--text-sec);
       text-align: center;
       position: relative;
+      --glow-color: #fff;
+      box-shadow: 0 0 8px  var(--glow-color), 
+                  inset 0 0 8px  var(--glow-color);
     }
 
-    .flow-node.node-pv    { border-color: var(--accent4); color: var(--accent4); }
-    .flow-node.node-inv   { border-color: var(--accent2); color: var(--accent2); }
-    .flow-node.node-grid  { border-color: var(--accent);  color: var(--accent);  }
+    .flow-node.node-pv    { border-color: var(--accent4); color: var(--accent4); --glow-color: var(--accent4); }
+    .flow-node.node-inv   { border-color: var(--accent2); color: var(--accent2); --glow-color: var(--accent2); }
+    .flow-node.node-grid  { border-color: var(--accent);  color: var(--accent); --glow-color: var(--accent);  }
 
-    .flow-arrow {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0;
-      height: 24px;
-      position: relative;
-      width: 100%;
-      max-width: 200px;
+    .flow-gradient-1 {
+      background: linear-gradient(to bottom, var(--accent4), var(--accent2));
+    }
+
+    .flow-gradient-2 {
+      background: linear-gradient(to bottom, var(--accent2), var(--accent));
+    }
+
+    @keyframes moveGradient {
+      /* from { background-position: 0 0; }
+      to { background-position: 0 13px; } */
+      from { mask-position: 0 0; }
+      to { mask-position: 0 200%; }
     }
 
     .flow-line {
-      width: 1.5px;
-      flex: 1;
-      background: linear-gradient(to bottom, var(--accent2), var(--accent));
-      position: relative;
-      overflow: hidden;
+      width: 10px;
+      height: 28px;
+
+      mask-image: linear-gradient(to bottom, black 0 50%, transparent 50% 100%);
+
+      mask-size: 100% 40%;
+      mask-repeat: repeat;
+
+      background-size: 100% 100%;
+      animation: moveGradient 2.4s linear infinite;
     }
 
-    .flow-line::after {
-      content: "";
-      position: absolute;
-      top: -100%;
-      left: 0; right: 0;
-      height: 60%;
-      background: linear-gradient(to bottom, transparent, rgba(74,222,128,0.9), transparent);
-      animation: flowPulse var(--flow-speed) linear infinite;
-      opacity: var(--flow-opacity);
-    }
-
-    @keyframes flowPulse {
-      0%   { top: -60%; }
-      100% { top: 100%; }
+    .flow-blur {
+      filter: blur(2px);
+      
     }
 
     .flow-tip {
@@ -368,11 +372,13 @@
     .tab-panel {
       display: none;
       height: 100%;
-      padding: 20px 24px;
       overflow-y: auto;
     }
 
-    .tab-panel.active { display: flex; flex-direction: column; gap: 20px; }
+    .tab-panel.active { display: flex; flex-direction: column;}
+
+    /* .scene-panel {
+    } */
 
     /* Day panel */
     .day-controls {
@@ -386,17 +392,6 @@
       font-size: 10px;
       color: var(--text-ter);
       white-space: nowrap;
-    }
-
-    select#month-select {
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: var(--r);
-      color: var(--text-pri);
-      font-family: var(--font-mono);
-      font-size: 11px;
-      padding: 5px 10px;
-      cursor: pointer;
     }
 
     .day-stats {
@@ -448,7 +443,16 @@
       height: 300px;
     }
 
-    .chart-canvas-wrap.tall { height: 380px; }
+    .chart-canvas-wrap.tall { height: 400px; }
+    .chart-canvas-wrap.short { height: 240px; }
+
+    .chart-canvas-wrap canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
 
     /* Loss waterfall layout */
     .loss-grid {
@@ -493,26 +497,25 @@
       color: var(--text-ter);
     }
 
-    /* ── Real Data Panel ─────────────────────────────────────── */
-    .rd-layout {
+    .main-panel-layout {
       display: grid;
       grid-template-columns: 1fr 340px;
-      gap: 16px;
+      /* gap: 16px; */
+      padding: 8px;
       flex: 1;
       min-height: 0;
     }
 
-    .rd-left { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
-    .rd-right { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+    .inner-panel { display: flex; flex-direction: column; gap: 12px; min-height: 0; padding: 8px;}
 
     .rd-controls {
       display: grid;
-      grid-template-columns: auto 1fr 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr ;
       gap: 12px;
       align-items: end;
       background: var(--bg1);
-      border: 1px solid var(--border);
-      border-radius: var(--r-lg);
+      border-bottom: 1px solid var(--border);
+      /* border-radius: var(--r-lg); */
       padding: 14px 18px;
     }
 
@@ -567,6 +570,20 @@
     .rd-time-row label { font-family: var(--font-mono); font-size: 9px; color: var(--text-ter); text-transform: uppercase; letter-spacing: .1em; white-space: nowrap; }
     .rd-time-row input { flex: 1; accent-color: var(--text-pri); cursor: pointer; }
     .rd-time-val { font-family: var(--font-mono); font-size: 13px; color: var(--text-pri); min-width: 52px; }
+
+    /* Panel orientation info row */
+    .rd-panel-info-row {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      background: var(--bg1);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 10px 18px;
+    }
+    .rd-panel-info-row .rd-pi-item { display: flex; align-items: center; gap: 8px; }
+    .rd-panel-info-row .rd-pi-label { font-family: var(--font-mono); font-size: 9px; color: var(--text-ter); text-transform: uppercase; letter-spacing: .1em; white-space: nowrap; }
+    .rd-panel-info-row .rd-pi-val { font-family: var(--font-mono); font-size: 13px; color: var(--text-pri); }
 
     /* KPI grid — daily totals */
     .rd-kpi-row {
@@ -628,7 +645,7 @@
       overflow: hidden;
       flex: 1;
       min-height: 260px;
-      max-height: 496px;
+      max-height: 420px;
       position: relative;
     }
 
@@ -642,8 +659,9 @@
       position: absolute;
       top: 8px; left: 10px;
       font-family: var(--font-mono);
-      font-size: 9px;
-      color: var(--text-ter);
+      font-size: 10px;
+      /* color: var(--text-ter); */
+      color: #060b14;
       pointer-events: none;
       line-height: 1.6;
     }
@@ -658,13 +676,7 @@
       border-radius: var(--r);
       display: none;
     }
-    
-    #rd-dataset-info {
-      font-family: var(--font-mono);
-      font-size: 9px;
-      color: var(--text-ter);
-      padding: 0 2px;
-    }
+
     /* Scrollbar */
     /* ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -698,7 +710,7 @@
     </div>
     <div class="header-location">
       <div id="location-label">Phoenix, AZ</div>
-      <div id="location-sub"><span id="loc-climate-label">Desert Southwest</span><span id="rd-dataset-info"> · 33.4° N, 112.1° W</span></div>
+      <div id="location-sub"><span id="loc-climate-label">Desert Southwest · 33.4° N, 112.1° W</span></div>
       <!-- <div id="location-sub">Desert Southwest · 33.4° N, 112.1° W</div> -->
     </div>
   </header>
@@ -714,13 +726,13 @@
 
     <!-- Power flow diagram -->
     <div class="sidebar-section">
-      <div class="section-label">Live power flow</div>
+      <div class="section-label">Power Flow</div>
       <div class="flow-diagram">
         <div class="flow-node node-pv">PV ARRAY<br><span style="font-size:9px;opacity:0.6">1,000 kWp DC</span></div>
-        <div class="flow-arrow"><div class="flow-line"></div></div>
+        <div class="flow-blur"><div class="flow-line flow-gradient-1"></div></div>
         <div class="flow-node node-inv">INVERTER<br><span style="font-size:9px;opacity:0.6">800 kW AC</span></div>
-        <div class="flow-arrow"><div class="flow-line"></div></div>
-        <div class="flow-node node-grid">GRID<br><span style="font-size:9px;opacity:0.6">HV export</span></div>
+        <div class="flow-blur"><div class="flow-line flow-gradient-2"></div></div>
+        <div class="flow-node node-grid">GRID<br></div>
       </div>
     </div>
 
@@ -763,341 +775,292 @@
       </div>
     </div>
 
-    <!-- Tabs -->
-    <div class="tab-bar">
-      <button class="tab-btn active" data-tab="realdata">Real Data ✦</button>
-      <button class="tab-btn" data-tab="day">Day view</button>
-      <button class="tab-btn" data-tab="annual">Annual</button>
-      <button class="tab-btn" data-tab="losses">Loss analysis</button>
-      <button class="tab-btn" data-tab="sun-graph">Sun Graph</button>
+    <div class="rd-controls">
+      <div class="rd-control-group">
+        <div class="rd-label">Tracking</div>
+        <select class="rd-select" id="rd-track">
+          <option value="0" selected>Fixed</option>
+          <option value="1">Track E-W</option>
+        </select>
+        <!-- <div class="rd-label" style="color:var(--accent4)">Orientation compass</div>
+        <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-ter);line-height:1.7;margin-top:4px;">
+          0° = North<br>90° = East<br>180° = South ← optimal NH<br>270° = West
+        </div> -->
+      </div>
+      <div class="rd-control-group">
+        <div class="rd-label">Panel tilt — <span class="rd-value" id="rd-tilt-val">25°</span></div>
+        <input type="range" class="rd-slider" id="rd-tilt" min="-90" max="90" step="1" value="25" />
+      </div>
+      <div class="rd-control-group">
+        <div class="rd-label">Azimuth — <span class="rd-value" id="rd-az-val">180°  S</span></div>
+        <input type="range" class="rd-slider" id="rd-azimuth" min="0" max="359" step="1" value="180" />
+      </div>
     </div>
 
-    <!-- Tab panels -->
-    <div class="tab-panels">
+    <!-- Tabs -->
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="realdata">Day View</button>
+      <button class="tab-btn" data-tab="annual">Annual</button>
+      <button class="tab-btn" data-tab="losses">Loss analysis</button>
+      <button class="tab-btn" data-tab="sun-graph">Climate</button>
+    </div>
 
-      <!-- ── Real Data Panel ── -->
-      <div class="tab-panel active" id="panel-realdata">
+    <div class="main-panel-layout">
+      <!-- Tab panels -->
+      <div class="tab-panels">
 
-        <!-- Status / error -->
-        <div id="rd-status"></div>
+        <!-- ── Real Data Panel ── -->
+        <div class="tab-panel active" id="panel-realdata">
 
-        <!-- Dataset info bar -->
-        <!-- <div id="rd-dataset-info"></div> -->
+          <!-- Status / error -->
+          <div id="rd-status"></div>
 
-        <div class="rd-layout">
-
-          <!-- LEFT: controls + chart -->
-          <div class="rd-left">
-
+          <div class="inner-panel">
             <!-- Controls row -->
-            <div class="rd-controls">
-              <div class="rd-control-group">
+            <div style="display: flex; flex-direction: row; justify-content: space-between; gap: 8px;">
+              <div class="" style="width: 80px;">
                 <div class="rd-label">Month</div>
                 <select class="rd-select" id="rd-month"></select>
               </div>
-              <div class="rd-control-group">
-                <div class="rd-label">Panel tilt — <span class="rd-value" id="rd-tilt-val">25°</span></div>
-                <input type="range" class="rd-slider" id="rd-tilt" min="-90" max="90" step="1" value="25" />
-              </div>
-              <div class="rd-control-group">
-                <div class="rd-label">Azimuth — <span class="rd-value" id="rd-az-val">180°  S</span></div>
-                <input type="range" class="rd-slider" id="rd-azimuth" min="0" max="359" step="1" value="180" />
-              </div>
-              <div class="rd-control-group">
-                <div class="rd-label">Tracking</div>
-                <select class="rd-select" id="rd-track">
-                  <option value="0" selected>Fixed</option>
-                  <option value="1">Track</option>
-                </select>
-                <!-- <div class="rd-label" style="color:var(--accent4)">Orientation compass</div>
-                <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-ter);line-height:1.7;margin-top:4px;">
-                  0° = North<br>90° = East<br>180° = South ← optimal NH<br>270° = West
+              <!-- Daily KPIs -->
+              <div class="rd-kpi-row">
+                <!-- <div class="rd-kpi">
+                  <div class="rd-kpi-label">Total Incident energy</div>
+                  <div class="rd-kpi-value" id="rd-kpi-total-poa" style="color:var(--accent4)">—</div>
                 </div> -->
-              </div>
-            </div>
-
-            <!-- Daily KPIs -->
-            <div class="rd-kpi-row">
-              <div class="rd-kpi">
-                <div class="rd-kpi-label">Daily AC energy</div>
-                <div class="rd-kpi-value" id="rd-kpi-ac" style="color:var(--accent)">—</div>
-              </div>
-              <div class="rd-kpi">
-                <div class="rd-kpi-label">Daily DC energy</div>
-                <div class="rd-kpi-value" id="rd-kpi-dc" style="color:var(--accent2)">—</div>
-              </div>
-              <div class="rd-kpi">
-                <div class="rd-kpi-label">Peak AC power</div>
-                <div class="rd-kpi-value" id="rd-kpi-peak" style="color:var(--accent)">—</div>
-              </div>
-              <div class="rd-kpi">
-                <div class="rd-kpi-label">Peak POA</div>
-                <div class="rd-kpi-value" id="rd-kpi-poa" style="color:var(--accent4)">—</div>
-              </div>
-              <div class="rd-kpi">
-                <div class="rd-kpi-label">Performance ratio</div>
-                <div class="rd-kpi-value" id="rd-kpi-pr" style="color:var(--accent2)">—</div>
-              </div>
-            </div>
-            <div class="rd-kpi-row">
-              <div class="rd-kpi">
-                <div class="rd-kpi-label">Annual AC energy</div>
-                <div class="rd-kpi-value" id="rd-kpi-annual-ac" style="color:var(--accent)">—</div>
-              </div>
-              <div class="rd-kpi">
-                <div class="rd-kpi-label">Annual DC energy</div>
-                <div class="rd-kpi-value" id="rd-kpi-annual-dc" style="color:var(--accent2)">—</div>
-              </div>
-              <div class="rd-kpi">
-                <div class="rd-kpi-label">Avg annual PR</div>
-                <div class="rd-kpi-value" id="rd-kpi-annual-pr" style="color:var(--accent2)">—</div>
+                <div class="rd-kpi">
+                  <div class="rd-kpi-label">Daily DC energy</div>
+                  <div class="rd-kpi-value" id="rd-kpi-dc" style="color:var(--accent2)">—</div>
+                </div>
+                <div class="rd-kpi">
+                  <div class="rd-kpi-label">Daily AC energy</div>
+                  <div class="rd-kpi-value" id="rd-kpi-ac" style="color:var(--accent)">—</div>
+                </div>
+                <div class="rd-kpi">
+                  <div class="rd-kpi-label">Peak AC power</div>
+                  <div class="rd-kpi-value" id="rd-kpi-peak" style="color:var(--accent)">—</div>
+                </div>
+                <div class="rd-kpi">
+                  <div class="rd-kpi-label">Peak POA</div>
+                  <div class="rd-kpi-value" id="rd-kpi-poa" style="color:var(--accent4)">—</div>
+                </div>
+                <div class="rd-kpi">
+                  <div class="rd-kpi-label">Performance ratio</div>
+                  <div class="rd-kpi-value" id="rd-kpi-pr" style="color:var(--accent2)">—</div>
+                </div>
               </div>
             </div>
 
             <!-- Irradiance + power chart -->
             <div class="chart-wrap" style="flex:none;">
               <div class="chart-title">Hourly irradiance bands (GHI, POA) and AC power output — mean / min / max across month</div>
-              <div class="chart-canvas-wrap" style="position:relative;height:400px;">
+              <div class="chart-canvas-wrap tall">
                 <canvas id="chart-realday"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- Annual view -->
+        <div class="tab-panel" id="panel-annual">
+          <div class="inner-panel">
+            <div class="chart-wrap">
+              <div class="chart-title">Monthly AC energy output vs GHI input (MWh)</div>
+              <div class="chart-canvas-wrap">
+                <canvas id="chart-annual"></canvas>
               </div>
             </div>
 
             <!-- Annual summary chart -->
             <div class="chart-wrap" style="flex:none;">
               <div class="chart-title">Annual summary — daily AC/DC energy and peak AC by month</div>
-              <div class="chart-canvas-wrap" style="position:relative;height:320px;">
+              <div class="chart-canvas-wrap short">
                 <canvas id="chart-realday-annual"></canvas>
               </div>
             </div>
+            
 
             <!-- Annual by day chart -->
-            <div class="chart-wrap" style="flex:none;">
+            <!-- <div class="chart-wrap" style="flex:none;">
               <div class="chart-title">Annual summary — by day</div>
               <div class="chart-canvas-wrap" style="position:relative;height:320px;">
                 <canvas id="chart-realday-annual-by-day"></canvas>
               </div>
-            </div>
+            </div> -->
+          </div>
+        </div>
 
-
-          </div><!-- /rd-left -->
-
-          <!-- RIGHT: 3D scene + hour snapshot -->
-          <div class="rd-right">
-
-
-            <!-- Time of day scrubber -->
-            <div class="rd-time-row">
-              <label>Time of day</label>
-              <input type="range" id="rd-hour" min="0" max="23" step="1" value="12" />
-              <span class="rd-time-val" id="rd-hour-val">12:00</span>
-              <!-- <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-ter)">→ updates sun position in 3D view</span> -->
-            </div>
-
-            <!-- 3D solar panel scene -->
-            <div class="scene-wrap">
-              <canvas id="canvas-3d"></canvas>
-              <div class="scene-overlay">
-                SunCalc sun position<br>
-                Faiman thermal model<br>
-                Hay-Davies POA
-              </div>
-            </div>
-
-            <!-- Current hour snapshot -->
-            <div class="rd-hour-card">
-              <div class="rd-hour-title">Hour snapshot — <span id="rd-hour-val-echo" style="color:var(--accent4)">12:00</span></div>
-              <div class="rd-hour-grid">
-                <div>
-                  <div class="rd-hour-row">
-                    <span class="rd-hour-key">GHI</span>
-                    <span class="rd-hour-val" id="rd-kpi-hour-ghi">—</span>
-                  </div>
-                  <div class="rd-hour-row">
-                    <span class="rd-hour-key">POA irrad.</span>
-                    <span class="rd-hour-val" id="rd-kpi-hour-poa" style="color:var(--accent2)">—</span>
-                  </div>
-                  <div class="rd-hour-row">
-                    <span class="rd-hour-key">AC output</span>
-                    <span class="rd-hour-val" id="rd-kpi-hour-ac" style="color:var(--accent)">—</span>
-                  </div>
-                </div>
-                <div>
-                  <div class="rd-hour-row">
-                    <span class="rd-hour-key">Cell temp</span>
-                    <span class="rd-hour-val" id="rd-kpi-hour-tcell" style="color:var(--accent3)">—</span>
-                  </div>
-                  <div class="rd-hour-row">
-                    <span class="rd-hour-key">Sun alt.</span>
-                    <span class="rd-hour-val" id="rd-kpi-hour-alt">—</span>
-                  </div>
-                  <div class="rd-hour-row">
-                    <span class="rd-hour-key">Sun azimuth</span>
-                    <span class="rd-hour-val" id="rd-kpi-hour-az">—</span>
-                  </div>
+        <!-- Loss analysis -->
+        <div class="tab-panel" id="panel-losses">
+          <div class="inner-panel">
+            <div class="loss-grid">
+              <div class="chart-wrap">
+                <div class="chart-title">Annual energy loss waterfall  [MWh/yr]</div>
+                <div class="chart-canvas-wrap tall">
+                  <canvas id="chart-waterfall"></canvas>
                 </div>
               </div>
-            </div>
-
-          </div><!-- /rd-right -->
-        </div><!-- /rd-layout -->
-      </div><!-- /panel-realdata -->
-
-      <!-- Day view -->
-      <div class="tab-panel" id="panel-day">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
-          <div class="day-controls">
-            <label>Representative day:</label>
-            <select id="month-select"></select>
-          </div>
-          <div class="day-stats">
-            <div class="day-stat">
-              <span class="day-stat-label">Month</span>
-              <span class="day-stat-value" id="day-month">—</span>
-            </div>
-            <div class="day-stat">
-              <span class="day-stat-label">Peak AC</span>
-              <span class="day-stat-value" id="day-peak" style="color:var(--accent)">—</span>
-            </div>
-            <div class="day-stat">
-              <span class="day-stat-label">Daily energy</span>
-              <span class="day-stat-value" id="day-energy" style="color:var(--accent)">—</span>
-            </div>
-            <div class="day-stat">
-              <span class="day-stat-label">Peak cell temp</span>
-              <span class="day-stat-value" id="day-peaktemp" style="color:var(--accent3)">—</span>
+              <div>
+                <div class="section-label" style="padding:0 0 10px;font-family:var(--font-mono);font-size:9px;letter-spacing:.12em;color:var(--text-ter);text-transform:uppercase;">Loss categories</div>
+                <div class="loss-legend">
+                  <div class="legend-item">
+                    <div class="legend-dot" style="background:#60a5fa"></div>
+                    <span class="legend-label">Gross DC (STC)</span>
+                    <span class="legend-pct">100%</span>
+                  </div>
+                  <div class="legend-item">
+                    <div class="legend-dot" style="background:#f87171"></div>
+                    <span class="legend-label">IAM / soiling</span>
+                    <span class="legend-pct">~2 %</span>
+                  </div>
+                  <div class="legend-item">
+                    <div class="legend-dot" style="background:#f87171"></div>
+                    <span class="legend-label">Near-shading</span>
+                    <span class="legend-pct">~0.5 %</span>
+                  </div>
+                  <div class="legend-item">
+                    <div class="legend-dot" style="background:#f87171"></div>
+                    <span class="legend-label">Mismatch</span>
+                    <span class="legend-pct">~1 %</span>
+                  </div>
+                  <div class="legend-item">
+                    <div class="legend-dot" style="background:#f87171"></div>
+                    <span class="legend-label">DC wiring</span>
+                    <span class="legend-pct">~1.5 %</span>
+                  </div>
+                  <div class="legend-item">
+                    <div class="legend-dot" style="background:#f87171"></div>
+                    <span class="legend-label">Inverter losses</span>
+                    <span class="legend-pct">~1.8 %</span>
+                  </div>
+                  <div class="legend-item">
+                    <div class="legend-dot" style="background:#f87171"></div>
+                    <span class="legend-label">Clipping</span>
+                    <span class="legend-pct">varies</span>
+                  </div>
+                  <div class="legend-item" style="border-color:var(--accent);background:rgba(74,222,128,0.05)">
+                    <div class="legend-dot" style="background:#4ade80"></div>
+                    <span class="legend-label" style="color:var(--accent)">Net AC output</span>
+                    <span class="legend-pct" style="color:var(--accent)">PR %</span>
+                  </div>
+                </div>
+                <div style="margin-top:16px;padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:9px;color:var(--text-ter);line-height:1.7;">
+                  Temperature losses are embedded<br>
+                  in gross DC calculation via the<br>
+                  Faiman model + I-V correction.<br><br>
+                  DC:AC ratio 1.25× causes visible<br>
+                  clipping on peak irradiance days.
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        <div class="chart-wrap">
-          <div class="chart-title">Hourly AC / DC power output and cell temperature</div>
-          <div class="chart-canvas-wrap tall">
-            <canvas id="chart-day"></canvas>
+        <div class="tab-panel" id="panel-sun-graph">
+
+          <div class="inner-panel">
+            <div class="chart-wrap" style="flex:none;">
+              <div class="chart-title">Monthly Solar Resource &amp; Temperature</div>
+              <div class="chart-canvas-wrap tall">
+                <canvas id="chart-climate"></canvas>
+              </div>
+            </div>
+            <div class="chart-wrap">
+              <div class="chart-title">Annual Sun Graph</div>
+              <div class="chart-canvas-wrap tall">
+                <canvas id="chart-sun-graph"></canvas>
+              </div>
+            </div>
           </div>
         </div>
+
+      </div><!-- /tab-panels -->
+
+      <!-- RIGHT: 3D scene + hour snapshot -->
+      <div class="inner-panel">
+
+        <!-- Time of day scrubber -->
+        <div class="rd-time-row">
+          <label>Time of day</label>
+          <input type="range" id="rd-hour" min="0" max="23" step="1" value="12" />
+          <span class="rd-time-val" id="rd-hour-val">12:00</span>
+          <!-- <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-ter)">→ updates sun position in 3D view</span> -->
+        </div>
+
+        <!-- Panel orientation info -->
+        <!-- <div class="rd-panel-info-row">
+          <div class="rd-pi-item">
+            <span class="rd-pi-label">Panel tilt</span>
+            <span class="rd-pi-val" id="rd-info-tilt">25°</span>
+          </div>
+          <div class="rd-pi-item">
+            <span class="rd-pi-label">Panel azimuth</span>
+            <span class="rd-pi-val" id="rd-info-az">180° S</span>
+          </div>
+        </div> -->
+
+        <!-- 3D solar panel scene -->
+        <div class="scene-wrap">
+          <canvas id="canvas-3d"></canvas>
+          <div class="scene-overlay">
+            <div>
+            <span class="rd-pi-label">Panel tilt:</span>
+            <span class="rd-pi-val" id="rd-info-tilt">25°</span>
+            </div>
+            <div>
+            <span class="rd-pi-label">Panel azimuth:</span>
+            <span class="rd-pi-val" id="rd-info-az">180° S</span>
+            </div>
+            <!-- SunCalc sun position<br>
+            Faiman thermal model<br>
+            Hay-Davies POA -->
+          </div>
+        </div>
+
+        <!-- Current hour snapshot -->
+        <div class="rd-hour-card">
+          <div class="rd-hour-title">Hour snapshot — <span id="rd-hour-val-echo" style="color:var(--accent4)">12:00</span></div>
+          <div class="rd-hour-grid">
+            <div>
+              <div class="rd-hour-row">
+                <span class="rd-hour-key">GHI</span>
+                <span class="rd-hour-val" id="rd-kpi-hour-ghi">—</span>
+              </div>
+              <div class="rd-hour-row">
+                <span class="rd-hour-key">POA irrad.</span>
+                <span class="rd-hour-val" id="rd-kpi-hour-poa" style="color:var(--accent2)">—</span>
+              </div>
+              <div class="rd-hour-row">
+                <span class="rd-hour-key">AC output</span>
+                <span class="rd-hour-val" id="rd-kpi-hour-ac" style="color:var(--accent)">—</span>
+              </div>
+            </div>
+            <div>
+              <div class="rd-hour-row">
+                <span class="rd-hour-key">Cell temp</span>
+                <span class="rd-hour-val" id="rd-kpi-hour-tcell" style="color:var(--accent3)">—</span>
+              </div>
+              <div class="rd-hour-row">
+                <span class="rd-hour-key">Shade frac.</span>
+                <span class="rd-hour-val" id="rd-kpi-shade">—</span>
+              </div>
+              <div class="rd-hour-row">
+                <span class="rd-hour-key">Sun alt.</span>
+                <span class="rd-hour-val" id="rd-kpi-hour-alt">—</span>
+              </div>
+              <div class="rd-hour-row">
+                <span class="rd-hour-key">Sun azimuth</span>
+                <span class="rd-hour-val" id="rd-kpi-hour-az">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
-
-      <!-- Annual view -->
-      <div class="tab-panel" id="panel-annual">
-        <div class="chart-wrap">
-          <div class="chart-title">Monthly AC energy output vs GHI input (MWh)</div>
-          <div class="chart-canvas-wrap tall">
-            <canvas id="chart-annual"></canvas>
-          </div>
-        </div>
-      </div>
-
-      <!-- Loss analysis -->
-      <div class="tab-panel" id="panel-losses">
-        <div class="loss-grid">
-          <div class="chart-wrap">
-            <div class="chart-title">Annual energy loss waterfall  [MWh/yr]</div>
-            <div class="chart-canvas-wrap tall">
-              <canvas id="chart-waterfall"></canvas>
-            </div>
-          </div>
-          <div>
-            <div class="section-label" style="padding:0 0 10px;font-family:var(--font-mono);font-size:9px;letter-spacing:.12em;color:var(--text-ter);text-transform:uppercase;">Loss categories</div>
-            <div class="loss-legend">
-              <div class="legend-item">
-                <div class="legend-dot" style="background:#60a5fa"></div>
-                <span class="legend-label">Gross DC (STC)</span>
-                <span class="legend-pct">100%</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-dot" style="background:#f87171"></div>
-                <span class="legend-label">IAM / soiling</span>
-                <span class="legend-pct">~2 %</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-dot" style="background:#f87171"></div>
-                <span class="legend-label">Near-shading</span>
-                <span class="legend-pct">~0.5 %</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-dot" style="background:#f87171"></div>
-                <span class="legend-label">Mismatch</span>
-                <span class="legend-pct">~1 %</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-dot" style="background:#f87171"></div>
-                <span class="legend-label">DC wiring</span>
-                <span class="legend-pct">~1.5 %</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-dot" style="background:#f87171"></div>
-                <span class="legend-label">Inverter losses</span>
-                <span class="legend-pct">~1.8 %</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-dot" style="background:#f87171"></div>
-                <span class="legend-label">Clipping</span>
-                <span class="legend-pct">varies</span>
-              </div>
-              <div class="legend-item" style="border-color:var(--accent);background:rgba(74,222,128,0.05)">
-                <div class="legend-dot" style="background:#4ade80"></div>
-                <span class="legend-label" style="color:var(--accent)">Net AC output</span>
-                <span class="legend-pct" style="color:var(--accent)">PR %</span>
-              </div>
-            </div>
-            <div style="margin-top:16px;padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:9px;color:var(--text-ter);line-height:1.7;">
-              Temperature losses are embedded<br>
-              in gross DC calculation via the<br>
-              Faiman model + I-V correction.<br><br>
-              DC:AC ratio 1.25× causes visible<br>
-              clipping on peak irradiance days.
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="tab-panel" id="panel-sun-graph">
-        <div class="chart-wrap">
-          <div class="chart-title">Annual Sun Graph</div>
-          <div class="chart-canvas-wrap tall">
-            <canvas id="chart-sun-graph"></canvas>
-          </div>
-        </div>
-      </div>
-
-    </div><!-- /tab-panels -->
+    </div>
   </main>
 </div><!-- /app -->
-
-<script type="module">
-  import { init } from "./js/ui/ui.js";
-
-  document.addEventListener("DOMContentLoaded", () => {
-    init();
-    // sync hour echo label
-    const hourSlider = document.getElementById("rd-hour");
-    const hourEcho   = document.getElementById("rd-hour-val-echo");
-    if (hourSlider && hourEcho) {
-      hourSlider.addEventListener("input", e => {
-        hourEcho.textContent = String(e.target.value).padStart(2,"0") + ":00";
-      });
-    }
-    // Lazy-init the real data panel the first time the tab is clicked
-    
-    // let rdInited = false;
-    // document.querySelectorAll(".tab-btn").forEach(btn => {
-    //   btn.addEventListener("click", async () => {
-    //     if (btn.dataset.tab === "realdata" && !rdInited) {
-    //       rdInited = true;
-    //       await initRealDayPanel();
-    //       // sync hour echo label
-    //       const hourSlider = document.getElementById("rd-hour");
-    //       const hourEcho   = document.getElementById("rd-hour-val-echo");
-    //       if (hourSlider && hourEcho) {
-    //         hourSlider.addEventListener("input", e => {
-    //           hourEcho.textContent = String(e.target.value).padStart(2,"0") + ":00";
-    //         });
-    //       }
-    //     }
-    //   });
-    // });
-  });
-
-</script>
+<script type="module" src="./js/main.js"></script>
 </body>
 </html>

@@ -8,6 +8,7 @@
 export const PLANT = {
   // --- Array ---
   dcCapacityKwp: 1000,          // DC nameplate capacity [kWp]
+  moduleEfficiency: 0.21,       // Module rated efficiency 
   modulePmaxWp: 400,            // Module rated power [Wp] (STC)
   moduleVoc: 49.8,              // Open-circuit voltage [V] at STC
   moduleIsc: 10.2,              // Short-circuit current [A] at STC
@@ -16,8 +17,11 @@ export const PLANT = {
   moduleTempCoeffPmax: -0.0034, // Power temp coefficient [/°C] (–0.34%/°C)
   moduleTempCoeffVoc: -0.0029,  // Voc temp coefficient [/°C]
   moduleTempCoeffIsc:  0.00045, // Isc temp coefficient [/°C]
-  tiltDeg: 25,                  // Array tilt from horizontal [°]
-  azimuthDeg: 180,              // Array azimuth (180 = south-facing)
+  // tiltDeg: 25,                  // Array tilt from horizontal [°]
+  // azimuthDeg: 180,              // Array azimuth (180 = south-facing)
+
+  panelHeight: 1,
+  rowSpacing: 1.5,
   groundCoverageRatio: 0.40,    // GCR (used for self-shading estimate)
 
   // --- Losses (fixed, applied in waterfall) ---

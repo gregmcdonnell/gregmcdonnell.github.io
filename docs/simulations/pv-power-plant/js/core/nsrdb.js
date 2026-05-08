@@ -24,7 +24,7 @@ const DAYSINMONTHS = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
  *   meta    — first-row key/value pairs
  *   records — array of row objects with numeric fields
  */
-export function parseNSRDB(csvText) {
+function parseNSRDB(csvText) {
   const lines = csvText.trim().split(/\r?\n/);
 
   // Row 0: metadata (comma-separated key=value pairs in adjacent cells)
@@ -110,32 +110,80 @@ export function aggregateMonth(byMonth, month) {
   }
 
   return byHour.map((rows, hour) => {
-    if (rows.length === 0) {
-      return {
-        hour,
-        ghi:  { mean: 0, min: 0, max: 0 },
-        dni:  { mean: 0, min: 0, max: 0 },
-        dhi:  { mean: 0, min: 0, max: 0 },
-        temp: { mean: 20, min: 20, max: 20 },
-        rows: [],
-      };
-    }
+    // Each row here is data for a given day at that hour, so should be ~30 rows
+    const nDaysInMonth = rows.length;
+    if (nDaysInMonth === 0) return null;
 
+    // Calculate mean, min, max for the given field (GHI, DNI, temp, etc.)
     const stat = (field) => {
-      const vals = rows.map(r => r[field] ?? 0).filter(v => !isNaN(v));
-      if (vals.length === 0) return { mean: 0, min: 0, max: 0 };
-      const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-      return { mean, min: Math.min(...vals), max: Math.max(...vals) };
+      let sum = 0, min = Infinity, max = -Infinity;
+      for (const r of rows) {
+        const v = r[field] ?? 0;
+        sum += v;
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+      return { mean: sum / nDaysInMonth, min, max, };
     };
 
     return {
       hour,
-      ghi:  stat("GHI"),
-      dni:  stat("DNI"),
-      dhi:  stat("DHI"),
-      temp: stat("Temperature"),
-      // wind: stat("Wind"),
-      rows,
+      ghi:      stat("GHI"),
+      dni:      stat("DNI"),
+      dhi:      stat("DHI"),
+      temp:     stat("Temperature"),
+      clearDni: stat("Clearsky DNI"),
+      // rows,
+    };
+  });
+}
+
+/**
+ * Compute monthly climate averages from NSRDB data — location-only, no plant parameters.
+ * Each entry: { name, month, ghi_kWhPd, dni_kWhPd, dhi_kWhPd, temp_mean, temp_min, temp_max, clearness }
+ *   ghi_kWhPd  — mean daily GHI  [kWh/m²/day]
+ *   dni_kWhPd  — mean daily DNI  [kWh/m²/day]
+ *   dhi_kWhPd  — mean daily DHI  [kWh/m²/day]
+ *   temp_mean  — mean daily temperature [°C]
+ *   temp_min   — monthly minimum temperature [°C]
+ *   temp_max   — monthly maximum temperature [°C]
+ *   clearness  — DNI / ClearskyDNI ratio 0–1 (cloud cover proxy)
+ */
+export function monthlyClimateSummary(dataset) {
+  const NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+  return Array.from({ length: 12 }, (_, i) => {
+    const m = i + 1;
+    const hours = aggregateMonth(dataset.byMonth, m);
+
+    let ghiSum = 0, dniSum = 0, dhiSum = 0, clearDniSum = 0;
+    let tempSum = 0, tempMin = Infinity, tempMax = -Infinity, count = 0;
+
+    for (const h of hours) {
+      if (!h) continue;
+      ghiSum     += h.ghi.mean;
+      dniSum     += h.dni.mean;
+      dhiSum     += h.dhi.mean;
+      clearDniSum+= h.clearDni.mean;
+      tempSum    += h.temp.mean;
+      if (h.temp.min < tempMin) tempMin = h.temp.min;
+      if (h.temp.max > tempMax) tempMax = h.temp.max;
+      count++;
+    }
+
+    const clearness = clearDniSum > 0 ? dniSum / clearDniSum : 0;
+
+    return {
+      name:      NAMES[i],
+      month:     m,
+      ghi_kWhPd: ghiSum / 1000,
+      dni_kWhPd: dniSum / 1000,
+      dhi_kWhPd: dhiSum / 1000,
+      temp_mean: count > 0 ? tempSum / count : 0,
+      temp_min:  isFinite(tempMin) ? tempMin : 0,
+      temp_max:  isFinite(tempMax) ? tempMax : 0,
+      cloudiness: dhiSum / ghiSum,
+      clearness: Math.min(1, Math.max(0, clearness)),
     };
   });
 }
