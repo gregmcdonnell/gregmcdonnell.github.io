@@ -97,13 +97,20 @@
   },
   {
     "id": "img-8",
+    "src": "/assets/images/procedural-fields/field1.png",
+    "project_slug": "procedural-fields",
+    "tags": [],
+    "caption": ""
+  },
+  {
+    "id": "img-9",
     "src": "/assets/images/shared/particles-js-1.png",
     "project_slug": "shared",
     "tags": [],
     "caption": ""
   },
   {
-    "id": "img-9",
+    "id": "img-10",
     "src": "/assets/images/solar-system/solar-system-orbits.png",
     "project_slug": "solar-system",
     "tags": [

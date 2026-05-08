@@ -1,5 +1,15 @@
 [
   {
+    "title": "Solar Plant Simulation",
+    "description": "Simulating a photovoltaic solar array power plant.",
+    "date": "2026-05",
+    "slug": "pv-power-plant",
+    "url": "/simulations/pv-power-plant",
+    "project_url": "",
+    "tags": "",
+    "software": ""
+  },
+  {
     "title": "Piano-Keyboard",
     "description": "I wanted a way to play piano on my laptop, and ended up diving into synthesizer programming.",
     "date": "2026-01",
@@ -15,6 +25,16 @@
     "date": "2025-09",
     "slug": "particles-gpu-js",
     "url": "/simulations/particles-gpu-js",
+    "project_url": "",
+    "tags": "",
+    "software": ""
+  },
+  {
+    "title": "Procedural Fields",
+    "description": "Infinite real-time terrain and grass generation.",
+    "date": "2025-08",
+    "slug": "procedural-fields",
+    "url": "/simulations/procedural-fields",
     "project_url": "",
     "tags": "",
     "software": ""
