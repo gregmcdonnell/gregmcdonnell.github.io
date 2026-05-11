@@ -22,6 +22,7 @@ import { inverterOutput } from "./inverter.js";
 import { computeIncidence } from "./irradiance.js";
 
 const DEG = Math.PI / 180;
+const PI2 = Math.PI * 2;
 
 /**
  * Calculate hourly profile + daily totals for one month from NSRDB.
@@ -33,7 +34,7 @@ const DEG = Math.PI / 180;
  * @param {boolean} tracking    — enable single-axis tracking
  * @returns hourly array (each hour has mean/min/max tracks)
  */
-export function calculateMonthlyFromNSRDB(dataset, month, tilt, azimuth, tracking) {
+export function calculateMonthlyFromNSRDB(dataset, month, tilt, azimuth, tracking, backtracking) {
   const agg = aggregateMonth(dataset.byMonth, month);
   const year = dataset.records[0]?.["Year"] ?? 2023;
   
@@ -42,7 +43,7 @@ export function calculateMonthlyFromNSRDB(dataset, month, tilt, azimuth, trackin
     month, year, dataset.timezone,
     tilt, azimuth,
     window.SunCalc,
-    tracking
+    tracking, backtracking
   );
   
   return hourly;
@@ -57,7 +58,7 @@ export function calculateMonthlyFromNSRDB(dataset, month, tilt, azimuth, trackin
  * @param {boolean} tracking    — enable tracking
  * @returns { monthly[], annual, kpis }
  */
-export function calculateAnnualFromNSRDB(dataset, tilt, azimuth, tracking = false) {
+export function calculateAnnualFromNSRDB(dataset, tilt, azimuth, tracking = false, backtracking = true) {
   const DAYS_PER_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
   const monthly = [];
   let totalAc_kWh = 0;
@@ -66,7 +67,7 @@ export function calculateAnnualFromNSRDB(dataset, tilt, azimuth, tracking = fals
   let totalGhi_Wh = 0;  // Global horizontal irradiance [Wh/m²]
 
   for (let m = 1; m <= 12; m++) {
-    const hourly = calculateMonthlyFromNSRDB(dataset, m, tilt, azimuth, tracking);
+    const hourly = calculateMonthlyFromNSRDB(dataset, m, tilt, azimuth, tracking, backtracking);
     const daysInMonth = DAYS_PER_MONTH[m - 1];
 
     // Each hour in hourly is the mean across all days in that month
@@ -147,17 +148,17 @@ export function calculateAnnualFromNSRDB(dataset, tilt, azimuth, tracking = fals
  *
  * Returns extended object with poa, tCell, dc, ac fields for mean/min/max tracks.
  */
-function computeHourPOA(hourData, sunPos, tiltDeg, azimuthDeg, windSpeed = 3) {
-  const altDeg = sunPos.altitude / DEG;
-  const azDeg  = sunCalcAzToCompass(sunPos.azimuth);
+function computeHourPOA(hourData, sunVec, panelTilt, panelAz, windSpeed = 3) {
+  const isBelowHorizon = sunVec.z <= 0;
 
-  const isBelowHorizon = altDeg <= 0;
-
-  const normal = panelNormal(tiltDeg, azimuthDeg);
-  const sun    = sunVector(Math.max(0, altDeg), azDeg);
+  // console.log(hourData.hour);
+  const shade = shadedFraction(PLANT.panelHeight, PLANT.rowSpacing, panelTilt, panelAz, sunVec);
+  // panelTilt = !isNaN(backtrack) && backtrack > 0 ? backtrack: panelTilt;
+  
+  const normal = panelNormal(panelTilt, panelAz);
 
   // cos(incidence angle) = dot product of sun and panel normal
-  const cosInc = Math.max(0, dot(sun, normal));
+  const cosInc = Math.max(0, dot(sunVec, normal));
   const incDeg = Math.acos(Math.min(1, cosInc)) / DEG;
   const iam    = iamFactor(cosInc);
 
@@ -166,7 +167,7 @@ function computeHourPOA(hourData, sunPos, tiltDeg, azimuthDeg, windSpeed = 3) {
       return { poa: 0, tCell: tempVal, grossDc_kW: 0, netDc_kW: 0, acOutput_kW: 0 };
     }
 
-    const poa = computeIncidence(ghiVal, dniVal, dhiVal, cosInc, sunPos.altitude, tiltDeg * DEG, iam);
+    const poa = computeIncidence(ghiVal, dniVal, dhiVal, cosInc, sunVec.z, panelTilt, iam);
     
     // Cell temperature (Faiman)
     const tCell = cellTemperature(poa, tempVal, windSpeed);
@@ -191,15 +192,12 @@ function computeHourPOA(hourData, sunPos, tiltDeg, azimuthDeg, windSpeed = 3) {
   const min  = computeTrack(hourData.ghi.min,  hourData.dni.min,  hourData.dhi.min,  hourData.temp.max); // min irrad + max temp = worst
   const max  = computeTrack(hourData.ghi.max,  hourData.dni.max,  hourData.dhi.max,  hourData.temp.min); // max irrad + min temp = best
 
-  const shade = shadedFraction(PLANT.panelHeight, PLANT.rowSpacing, tiltDeg, altDeg, azDeg, azimuthDeg);
 
   return {
     hour:   hourData.hour,
-    panelTilt: tiltDeg,
-    panelAz: azimuthDeg,
-    altDeg,
-    azDeg,
-    sunVec: sun,
+    panelTilt: panelTilt,
+    panelAz: panelAz,
+    sunVec: sunVec,
     cosInc,
     incDeg,
     iam,
@@ -228,23 +226,25 @@ function computeHourPOA(hourData, sunPos, tiltDeg, azimuthDeg, windSpeed = 3) {
  *
  * Returns array of 24 enriched hourly objects.
  */
-export function processMonthForAverageDay(hourlyAgg, lat, lon, month, year, timezone, panelTiltDeg, panelAzDeg, SunCalc, tracking = false) {
-  const maxTilt = 60;
+export function processMonthForAverageDay(hourlyAgg, lat, lon, month, year, timezone, panelTilt, panelAz, SunCalc, tracking = false, backtracking = true) {
   return hourlyAgg.map((hourData) => {
      const utcDate = representativeUTC(month, hourData.hour, year, timezone);
     // const utcDate = new Date(Date.UTC(year, month - 1, 15, hourData.hour, 30));
     const sunPos  = SunCalc.getPosition(utcDate, lat, lon);
-    if (tracking) {
+    const sunAlt = sunPos.altitude;
+    const sunAz  = sunCalcAzToCompass(sunPos.azimuth);
+    const sunVec    = sunVector(Math.max(0, sunAlt), sunAz);
+    // const sunVec    = sunVector(sunAlt, sunAz);
 
-      const altDeg = sunPos.altitude / DEG;
-      const azDeg  = sunCalcAzToCompass(sunPos.azimuth);
-      const sun    = sunVector(altDeg, azDeg);
-      const trackTilt = Math.min(Math.max(-Math.atan2(sun.x, sun.z) / DEG, -maxTilt), maxTilt);
-      // const sunAltDeg = sunPos.altitude / DEG - 90;
-      // const trackTilt = sunAz < 180 ? Math.max(sunAltDeg, -60) : Math.min(-sunAltDeg, 60);
-      return computeHourPOA(hourData, sunPos, trackTilt, 270);
+    if (tracking) {
+      panelTilt = trackingTilt(sunVec, backtracking);
+      panelAz = 270 * DEG;
     }
-    return computeHourPOA(hourData, sunPos, panelTiltDeg, panelAzDeg);
+    const hrPOA = computeHourPOA(hourData, sunVec, panelTilt, panelAz);
+
+    hrPOA.altDeg = sunAlt / DEG;
+    hrPOA.azDeg = sunAz / DEG;
+    return hrPOA;
   });
 }
 
@@ -319,19 +319,17 @@ export function yearSunTimes(location) {
  */
 function sunCalcAzToCompass(azRad) {
   // SunCalc: 0 = south, π/2 = west, π = north, 3π/2 = east
-  let deg = (azRad / DEG) + 180; // shift so 0 = north
-  return ((deg % 360) + 360) % 360;
+  const shifted = azRad + Math.PI;
+  return ((shifted % PI2) + PI2) % PI2;
 }
 
 
 /**
  * Compute panel normal unit vector in ENU (East-North-Up) coordinates.
- *  tiltDeg   — tilt from horizontal
- *  azimuthDeg — panel face direction, degrees from north (clockwise)
+ *  tilt   — tilt from horizontal
+ *  az — panel face direction, degrees from north (clockwise)
  */
-function panelNormal(tiltDeg, azimuthDeg) {
-  const tilt = tiltDeg * DEG;
-  const az   = azimuthDeg * DEG;
+function panelNormal(tilt, az) {
   // ENU: x=East, y=North, z=Up
   return {
     x:  Math.sin(tilt) * Math.sin(az),  // East component
@@ -342,12 +340,10 @@ function panelNormal(tiltDeg, azimuthDeg) {
 
 /**
  * Compute sun unit vector in ENU coordinates.
- *  altDeg — solar altitude above horizon [deg]
- *  azDeg  — solar azimuth from north, clockwise [deg]
+ *  alt — solar altitude above horizon [deg]
+ *  az  — solar azimuth from north, clockwise [deg]
  */
-function sunVector(altDeg, azDeg) {
-  const alt = altDeg * DEG;
-  const az  = azDeg  * DEG;
+function sunVector(alt, az) {
   return {
     x:  Math.cos(alt) * Math.sin(az),   // East
     y:  Math.cos(alt) * Math.cos(az),   // North
@@ -374,24 +370,20 @@ function iamFactor(cosInc) {
 /**
  * Calculate the fraction of the panel that is shaded from bottom-up due to low sun angle
  */
-function shadedFraction(W, D, thetaDeg, sunAltDeg, sunAz, panelAz) {
-  const tilt = Math.abs(thetaDeg) * Math.PI / 180;
-  const alt = sunAltDeg * Math.PI / 180;
-  const pAz = panelAz * Math.PI / 180;
-  const sAz = sunAz * Math.PI / 180;
+function shadedFraction(W, D, panelTilt, panelAz, sunVec) {
+  const tilt = Math.abs(panelTilt);
+  const pAz = panelAz;
   const halfW = W / 2;
 
-  // const sunProj = sunVec - dot(sunVec, tiltAxis) * tiltAxis;
   const panelHeading = {x: Math.sin(pAz), y: Math.cos(pAz)};
-  const sunHeading = {x: Math.sin(sAz) * Math.cos(alt), y: Math.cos(sAz) * Math.cos(alt)};
-  const sdotp = sunHeading.x * panelHeading.x + sunHeading.y * panelHeading.y;
+  const sdotp = sunVec.x * panelHeading.x + sunVec.y * panelHeading.y;
+  // slope of a sun ray projected onto the plane normal to the panel tilt axis
+  const sunRaySlope = -sunVec.z / Math.abs(sdotp);
 
   // Geometry of the casting edge (front/top edge)
   const pY = halfW * Math.sin(tilt);     // height above pivot
   const pX = halfW * Math.cos(tilt);     // horizontal offset
 
-  // const sunRaySlope = -Math.tan(alt);
-  const sunRaySlope = -Math.sin(alt) / Math.abs(sdotp);
   // console.log(sdotp, -Math.tan(alt), sunRaySlope, sdotp > 0);
   const panelSlope = Math.tan(tilt);
   // Eq of sun ray: y - Py = sunRaySlope * (x - Px) -> y = sunRaySlope * (x - Px) + Py
@@ -403,4 +395,32 @@ function shadedFraction(W, D, thetaDeg, sunAltDeg, sunAz, panelAz) {
   const fracShaded = c / W + 0.5;
   // console.log("shaded fraction: ", fracShaded);
   return Math.max(fracShaded, 0);
+}
+
+function backtrackAngle(W, D, sunSlope) {
+  const A = W / (D * -sunSlope);
+  const B = W / D;
+  const phi = Math.atan2(B, A);
+  const backtrack = Math.asin(1 / Math.sqrt(A*A + B*B)) - phi;
+  // console.log("backtrack: " + backtrack * 180 / Math.PI);
+  return backtrack;
+}
+
+function trackingTilt(sunVec, backtracking = true) {
+  if (sunVec.z <= 0)
+    return 0;
+
+  const maxTilt = 60 * DEG;
+  const trackTilt = -Math.atan2(sunVec.x, sunVec.z);
+  if (!backtracking)
+    return Math.min(Math.max(trackTilt, -maxTilt), maxTilt);
+  
+  const panelHeading = {x: -1, y: 0};
+  const sdotp = sunVec.x * panelHeading.x + sunVec.y * panelHeading.y;
+  // slope of a sun ray projected onto the plane normal to the panel tilt axis
+  const sunRaySlope = -sunVec.z / Math.abs(sdotp);
+
+  const backtrack = backtrackAngle(PLANT.panelHeight, PLANT.rowSpacing, sunRaySlope);
+  const finalTilt = !isNaN(backtrack) && backtrack > 0 ? backtrack * Math.sign(trackTilt) : trackTilt;
+  return Math.min(Math.max(finalTilt, -maxTilt), maxTilt);
 }

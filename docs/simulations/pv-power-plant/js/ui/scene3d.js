@@ -175,7 +175,7 @@ export class Scene3D {
     // Camera + controls
     this.#camera = new THREE.PerspectiveCamera(42, W / H, 0.1, 200);
     this.#controls = new THREE.OrbitControls(this.#camera, this.#renderer.domElement);
-    this.#camera.position.set(16, 16, 18);
+    this.#camera.position.set(17.5, 7, 7);
     this.#controls.target.set(0, 1.4, 0);
     this.#controls.update();
 
@@ -231,17 +231,15 @@ export class Scene3D {
       b.position.x = (i - (5 - 1) / 2) * 14/5;
       moduleGroup.add(b);
     }
-    this.#modulesGroup.add(moduleGroup);
-    this.#modules.push(moduleGroup);
+    // this.#modulesGroup.add(moduleGroup);
+    // this.#modules.push(moduleGroup);
 
     const spacing = PLANT.rowSpacing;
-    for (let i = 0; i < 2; i++) {
-      for (const j of [-1, 1]) {
-        const moduleClone = moduleGroup.clone();
-        moduleClone.position.set(0, 0, spacing * (i + 1) * j);
-        this.#modulesGroup.add(moduleClone);
-        this.#modules.push(moduleClone);
-      }
+    for (let i = 0; i < 6; i++) {
+      const moduleClone = moduleGroup.clone();
+      moduleClone.position.set(0, 0, spacing * (i - 5 / 2));
+      this.#modulesGroup.add(moduleClone);
+      this.#modules.push(moduleClone);
     }
 
     this.#scene.add(this.#modulesGroup);
@@ -274,6 +272,7 @@ export class Scene3D {
       this.#controls.update();
       this.#interpolateTowardsTargets();
       this.#renderer.render(this.#scene, this.#camera);
+      // console.log(this.#camera.position);
     };
     render();
 
@@ -398,6 +397,12 @@ export class Scene3D {
    *  setPrev    — if true, snap interp to target immediately (no animation)
    */
   updatePanelOrientation(tiltDeg, azimuthDeg, setPrev = false) {
+    // const GCR = 1 / 1.5;
+    // const tilt = tiltDeg * DEG2RAD
+
+    // tiltDeg = (90 - tiltDeg) * DEG2RAD;
+    // tiltDeg = Math.atan2(Math.sin(tiltDeg), Math.cos(tiltDeg) - 1/1.5) / DEG2RAD;
+    // tiltDeg = -Math.atan((Math.cos(tiltDeg) * GCR - Math.cos(tiltDeg)) / Math.sin(tiltDeg)) / DEG2RAD;
     this.#interpTargets.panelOrientation.set(tiltDeg, azimuthDeg);
     if (setPrev) this.#interpTargets.panelOrientationPrev.set(tiltDeg, azimuthDeg);
     this.#modules.forEach(m => {
@@ -406,6 +411,12 @@ export class Scene3D {
       m.children[0].rotation.x = (tiltDeg - 90) * DEG2RAD;
     });
     this.#modulesGroup.rotation.y = -(azimuthDeg - 180) * DEG2RAD;
+  }
+
+  updatePanelSpacing(spacing) {
+    this.#modules.forEach((m, i) => {
+      m.position.set(0, 0, spacing * (i - 5 / 2));
+    });
   }
 
   updateSunPosition(altDeg, azDeg) {

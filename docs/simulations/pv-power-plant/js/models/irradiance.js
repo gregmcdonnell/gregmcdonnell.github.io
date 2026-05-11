@@ -13,7 +13,7 @@ const DEG = Math.PI / 180;
  * @param {number} iam      - Incidence angle modifier
  * @returns POA irradiance (W/m^2)
  */
-export function computeIncidence(ghi, dni, dhi, cosInc, sunAlt, tilt, iam = 1) {
+export function computeIncidence(ghi, dni, dhi, cosInc, sunAltSin, tilt, iam = 1) {
     // Beam component on tilted surface: DNI × cos(incidence)
     const poa_beam = dni * cosInc * iam;
 
@@ -21,7 +21,7 @@ export function computeIncidence(ghi, dni, dhi, cosInc, sunAlt, tilt, iam = 1) {
     
     // const Rb = cosInc / Math.max(0.087, Math.sin(altDeg * DEG)); // beam transposition
     const aniso = dni / 1367; // anisotropy index (clearness)
-    const poa_sky = dhi * (aniso * Math.max(0, cosInc / Math.max(0.087, Math.sin(sunAlt)))
+    const poa_sky = dhi * (aniso * Math.max(0, cosInc / Math.max(0.087, sunAltSin))
                              + (1 - aniso) * (1 + Math.cos(tilt)) / 2);
 
     // Ground reflected

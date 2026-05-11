@@ -8,6 +8,9 @@ import { initWaterfallChart, updateWaterfallChart } from "./chartWaterfall.js";
 import { initSunGraphChart, updateSunGraphChart, initClimateChart, updateClimateChart } from "./chartClimate.js";
 import { Scene3D } from "./scene3d.js";
 
+const DEG2RAD = Math.PI / 180;
+const RAD2DEG = 180 / Math.PI;
+
 // Scene singleton
 const scene3d = Scene3D.init();
 
@@ -24,9 +27,10 @@ let dataset         = null;
 let currentLocation = "phoenix";
 let currentMonth    = 5;   // 1-indexed
 let currentHour     = 12;
-let fixedTilt       = 25;
-let fixedAz         = 180;
+let fixedTiltDeg       = 25;
+let fixedAzDeg         = 180;
 let tracking        = false;
+let backtracking    = true;
 let hourlyProfile   = null;
 
 const DAYS_PER_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -90,8 +94,8 @@ function updatePanelOrientationDisplay() {
     setEl("rd-info-tilt", panelTilt.toFixed(0) + "°");
     setEl("rd-info-az",   panelAz.toFixed(0) + "°  " + compassLabel(panelAz));
   } else {
-    setEl("rd-info-tilt", fixedTilt + "°");
-    setEl("rd-info-az",   fixedAz + "°  " + compassLabel(fixedAz));
+    setEl("rd-info-tilt", fixedTiltDeg + "°");
+    setEl("rd-info-az",   fixedAzDeg + "°  " + compassLabel(fixedAzDeg));
   }
 }
 
@@ -113,6 +117,7 @@ export async function setLocation(locationKey) {
   }
 
   setEl("location-label", loc.name);
+  setEl("bc-location", loc.name.toUpperCase().replace(/[^A-Z0-9]/g, "_"));
   const { lat, lon, timezone, elevation } = dataset;
   setEl("loc-climate-label",
     `${loc.label}  ·  ${Math.abs(lat).toFixed(2)}° ${lat >= 0 ? "N" : "S"},` +
@@ -148,8 +153,8 @@ function runUpdate() {
   hourlyProfile = processMonthForAverageDay(
     agg, dataset.lat, dataset.lon,
     currentMonth, year, dataset.timezone,
-    fixedTilt, fixedAz,
-    window.SunCalc, tracking
+    fixedTiltDeg * DEG2RAD, fixedAzDeg * DEG2RAD,
+    window.SunCalc, tracking, backtracking
   );
 
   if (dayChart) updateDayHourlyChart(dayChart, hourlyProfile);
@@ -157,7 +162,7 @@ function runUpdate() {
   const totals = dailyTotals(hourlyProfile);
   updateMetrics(totals, hourlyProfile);
 
-  const annualResult = calculateAnnualFromNSRDB(dataset, fixedTilt, fixedAz, tracking);
+  const annualResult = calculateAnnualFromNSRDB(dataset, fixedTiltDeg * DEG2RAD, fixedAzDeg * DEG2RAD, tracking, backtracking);
   updateKPIs(annualResult);
 
   if (annualChart)        updateAnnualChart(annualChart, annualResult.monthly);
@@ -166,7 +171,7 @@ function runUpdate() {
 
   const hrStats = hourlyProfile[currentHour];
   scene3d?.updateSunPosition(hrStats.altDeg, hrStats.azDeg);
-  scene3d?.updatePanelOrientation(hrStats.panelTilt, hrStats.panelAz, true);
+  scene3d?.updatePanelOrientation(hrStats.panelTilt * RAD2DEG, hrStats.panelAz * RAD2DEG, true);
   updatePanelOrientationDisplay();
   
 }
@@ -218,13 +223,25 @@ function buildControls() {
     monthSel.addEventListener("change", e => { currentMonth = +e.target.value; runUpdate(); });
   }
 
+  const rowSpacingSlider = document.getElementById("rd-row-spacing");
+  const rowSpacingVal    = document.getElementById("rd-row-spacing-val");
+  if (rowSpacingSlider) {
+    rowSpacingSlider.value = PLANT.rowSpacing;
+    rowSpacingSlider.addEventListener("input", e => {
+      PLANT.rowSpacing = +e.target.value;
+      if (rowSpacingVal) rowSpacingVal.textContent = PLANT.rowSpacing + "M";
+      scene3d.updatePanelSpacing(PLANT.rowSpacing);
+      runUpdate();
+    });
+  }
+
   const tiltSlider = document.getElementById("rd-tilt");
   const tiltVal    = document.getElementById("rd-tilt-val");
   if (tiltSlider) {
-    tiltSlider.value = fixedTilt;
+    tiltSlider.value = fixedTiltDeg;
     tiltSlider.addEventListener("input", e => {
-      fixedTilt = +e.target.value;
-      if (tiltVal) tiltVal.textContent = fixedTilt + "°";
+      fixedTiltDeg = +e.target.value;
+      if (tiltVal) tiltVal.textContent = fixedTiltDeg + "°";
       runUpdate();
     });
   }
@@ -232,21 +249,32 @@ function buildControls() {
   const azSlider = document.getElementById("rd-azimuth");
   const azVal    = document.getElementById("rd-az-val");
   if (azSlider) {
-    azSlider.value = fixedAz;
+    azSlider.value = fixedAzDeg;
     azSlider.addEventListener("input", e => {
-      fixedAz = +e.target.value;
-      const azStr = fixedAz + "°  " + compassLabel(fixedAz);
+      fixedAzDeg = +e.target.value;
+      const azStr = fixedAzDeg + "°  " + compassLabel(fixedAzDeg);
       if (azVal) azVal.textContent = azStr;
       runUpdate();
     });
   }
 
   const trackSel = document.getElementById("rd-track");
+  const backtrackCheck = document.getElementById("check-backtrack");
+  const shadowsWarning = document.getElementById("shadows-warning");
   if (trackSel) {
     trackSel.addEventListener("change", e => {
       tracking = +e.target.value === 1;
-      if (tiltSlider) tiltSlider.parentElement.style.visibility = tracking ? "hidden" : "";
-      if (azSlider)   azSlider.parentElement.style.visibility   = tracking ? "hidden" : "";
+      if (tiltSlider) tiltSlider.parentElement.style.display = tracking ? "none" : "flex";
+      if (azSlider)   azSlider.parentElement.style.display   = tracking ? "none" : "flex";
+      backtrackCheck.parentElement.style.display   = tracking ? "flex" : "none";
+      runUpdate();
+    });
+  }
+  if (backtrackCheck) {
+    backtrackCheck.parentElement.style.display   = tracking ? "flex" : "none";
+    backtrackCheck.addEventListener("change", e => {
+      backtracking = e.target.checked;
+      shadowsWarning.style.display = backtracking ? "none" : "flex";
       runUpdate();
     });
   }
@@ -275,7 +303,7 @@ function onTimeOfDayChange() {
     
     scene3d?.updateSunPosition(altDeg, azDeg);
     if (tracking) {
-      scene3d?.updatePanelOrientation(panelTilt, panelAz);
+      scene3d?.updatePanelOrientation(panelTilt * RAD2DEG, panelAz * RAD2DEG);
       updatePanelOrientationDisplay();
     }
   }
@@ -313,7 +341,7 @@ function initTabs() {
 }
 
 function buildScene() {
-  scene3d.updatePanelOrientation(fixedTilt, fixedAz, true);
+  scene3d.updatePanelOrientation(fixedTiltDeg, fixedAzDeg, true);
 }
 
 // ─────────────────────────────────────────────────────

@@ -21,7 +21,7 @@ export const PLANT = {
   // azimuthDeg: 180,              // Array azimuth (180 = south-facing)
 
   panelHeight: 1,
-  rowSpacing: 1.5,
+  rowSpacing: 2,
   groundCoverageRatio: 0.40,    // GCR (used for self-shading estimate)
 
   // --- Losses (fixed, applied in waterfall) ---
