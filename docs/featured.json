@@ -1,5 +1,9 @@
 [
   {
+    "slug": "pv-power-plant",
+    "type": "sim"
+  },
+  {
     "slug": "gpu-particle-collisions",
     "type": "project"
   },

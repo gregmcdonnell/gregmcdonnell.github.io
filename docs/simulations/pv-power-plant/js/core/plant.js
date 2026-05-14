@@ -20,8 +20,8 @@ export const PLANT = {
   // tiltDeg: 25,                  // Array tilt from horizontal [°]
   // azimuthDeg: 180,              // Array azimuth (180 = south-facing)
 
-  panelHeight: 1,
-  rowSpacing: 2,
+  panelHeight: 2,
+  rowSpacing: 4,
   groundCoverageRatio: 0.40,    // GCR (used for self-shading estimate)
 
   // --- Losses (fixed, applied in waterfall) ---

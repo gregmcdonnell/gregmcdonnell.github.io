@@ -16,7 +16,7 @@
 
 import { MONTH_NAMES } from "../core/climate.js";
 import { PLANT, DERIVED } from "../core/plant.js";
-import { aggregateMonth, representativeUTC } from "../core/nsrdb.js";
+import { representativeUTC } from "../core/nsrdb.js";
 import { cellTemperature } from "./pvarray.js";
 import { inverterOutput } from "./inverter.js";
 import { computeIncidence } from "./irradiance.js";
@@ -35,17 +35,16 @@ const PI2 = Math.PI * 2;
  * @returns hourly array (each hour has mean/min/max tracks)
  */
 export function calculateMonthlyFromNSRDB(dataset, month, tilt, azimuth, tracking, backtracking) {
-  const agg = aggregateMonth(dataset.byMonth, month);
+  const agg = dataset.byMonth[month].aggregate;
+  
   const year = dataset.records[0]?.["Year"] ?? 2023;
   
   const hourly = processMonthForAverageDay(
     agg, dataset.lat, dataset.lon,
     month, year, dataset.timezone,
     tilt, azimuth,
-    window.SunCalc,
     tracking, backtracking
   );
-  
   return hourly;
 }
 
@@ -226,11 +225,11 @@ function computeHourPOA(hourData, sunVec, panelTilt, panelAz, windSpeed = 3) {
  *
  * Returns array of 24 enriched hourly objects.
  */
-export function processMonthForAverageDay(hourlyAgg, lat, lon, month, year, timezone, panelTilt, panelAz, SunCalc, tracking = false, backtracking = true) {
+export function processMonthForAverageDay(hourlyAgg, lat, lon, month, year, timezone, panelTilt, panelAz, tracking = false, backtracking = true) {
   return hourlyAgg.map((hourData) => {
      const utcDate = representativeUTC(month, hourData.hour, year, timezone);
     // const utcDate = new Date(Date.UTC(year, month - 1, 15, hourData.hour, 30));
-    const sunPos  = SunCalc.getPosition(utcDate, lat, lon);
+    const sunPos  = window.SunCalc.getPosition(utcDate, lat, lon);
     const sunAlt = sunPos.altitude;
     const sunAz  = sunCalcAzToCompass(sunPos.azimuth);
     const sunVec    = sunVector(Math.max(0, sunAlt), sunAz);
@@ -304,18 +303,17 @@ export function buildLossWaterfall(annualResult) {
 }
 
 
-export function yearSunTimes(location) {
-  const days = Array.from(Array(365).keys());
-  let date = new Date(2026, 0, 1);
-  return days.map((i) => {
+export function yearSunTimes(lat, lon, elev) {
+  let date = new Date(2023, 0, 1);
+  return Array.from({ length: 365 }, (_, i) => {
     date.setDate(date.getDate() + 1);
-    return SunCalc.getTimes(date, location.lat, location.lon, location.altitude);
+    return window.SunCalc.getTimes(date, lat, lon, elev);
   });
 }
 
 /**
  * Convert SunCalc azimuth (radians, from south, clockwise) to
- * degrees from north, clockwise (standard compass bearing).
+ * radians from north, clockwise (standard compass bearing).
  */
 function sunCalcAzToCompass(azRad) {
   // SunCalc: 0 = south, π/2 = west, π = north, 3π/2 = east

@@ -8,7 +8,7 @@ const COLORS = {
   text: "#94a3b8",
 };
 
-export function initWaterfallChart(canvasId, steps) {
+export function initWaterfallChart(canvasId) {
   const ctx = document.getElementById(canvasId).getContext("2d");
   const opts = baseChartOptions();
   opts.indexAxis = "y";
@@ -26,12 +26,12 @@ export function initWaterfallChart(canvasId, steps) {
   };
   opts.plugins.legend = { display: false };
 
-  return new Chart(ctx, { type: "bar", data: buildWaterfallData(steps), options: opts });
+  return new Chart(ctx, { type: "bar", options: opts });
 }
 
 export function updateWaterfallChart(chart, steps) {
   chart.data = buildWaterfallData(steps);
-  chart.update();
+  chart.update("none");
 }
 
 function buildWaterfallData(steps) {

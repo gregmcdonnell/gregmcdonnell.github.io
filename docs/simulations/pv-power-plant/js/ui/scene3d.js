@@ -35,48 +35,57 @@ function slerpVec(a, b, t) {
     .add(relative.multiplyScalar(Math.sin(theta)));
 }
 
-function buildCellTexture(repeatX) {
+function buildCellTexture(repeatX, repeatY) {
   const THREE = window.THREE;
-  const size = 512;
+  const width = 256;
+  const height = 512;
   const c = document.createElement("canvas");
-  c.width = c.height = size;
+  c.width = width;
+  c.height = height;
   const ctx = c.getContext("2d");
 
   ctx.fillStyle = "#1a2340";
-  ctx.fillRect(0, 0, size, size);
+  ctx.fillRect(0, 0, width, height);
 
-  const cols = 6, rows = 10;
-  const cw = size / cols, ch = size / rows;
-  ctx.strokeStyle = "#2a3a55";
+  const cols = 6, rows = 12;
+  const cw = width / cols, ch = height / rows;
+  ctx.strokeStyle = "#bcbfc548";
   ctx.lineWidth = 2;
   for (let r = 0; r <= rows; r++) {
-    ctx.beginPath(); ctx.moveTo(0, r * ch); ctx.lineTo(size, r * ch); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, r * ch); ctx.lineTo(width, r * ch); ctx.stroke();
   }
   for (let col = 0; col <= cols; col++) {
-    ctx.beginPath(); ctx.moveTo(col * cw, 0); ctx.lineTo(col * cw, size); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(col * cw, 0); ctx.lineTo(col * cw, height); ctx.stroke();
   }
 
-  ctx.strokeStyle = "#c8d0d8";
-  ctx.lineWidth = 1.5;
-  for (let col = 0; col < cols; col++) {
-    const x0 = col * cw;
-    for (let b = 1; b <= 3; b++) {
-      const x = x0 + (b / 4) * cw;
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, size); ctx.stroke();
-    }
-  }
+  // ctx.strokeStyle = "#c8d0d8";
+  // ctx.lineWidth = 1.5;
+  // for (let col = 0; col < cols; col++) {
+  //   const x0 = col * cw;
+  //   for (let b = 1; b <= 3; b++) {
+  //     const x = x0 + (b / 4) * cw;
+  //     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+  //   }
+  // }
 
-  const grad = ctx.createLinearGradient(0, 0, size, size);
-  grad.addColorStop(0,   "rgba(80,120,180,0.10)");
-  grad.addColorStop(0.5, "rgba(40, 80,150,0.04)");
-  grad.addColorStop(1,   "rgba(20, 40,100,0.10)");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, size, size);
+  // glass layer
+  ctx.fillStyle = "rgba(75, 111, 164, 0.05)";
+  ctx.fillRect(0, 0, width, height);
+
+
+  ctx.strokeStyle = "#bfc1c3";
+  ctx.lineWidth = 10;
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, height); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(width, 0); ctx.lineTo(width, height); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(width, 0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, height); ctx.lineTo(width, height); ctx.stroke();
+
+
 
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(repeatX, 1);
+  tex.repeat.set(repeatX, repeatY);
   return tex;
   // return THREE.CanvasTexture ? new THREE.CanvasTexture(c) : null;
 }
@@ -175,7 +184,7 @@ export class Scene3D {
     // Camera + controls
     this.#camera = new THREE.PerspectiveCamera(42, W / H, 0.1, 200);
     this.#controls = new THREE.OrbitControls(this.#camera, this.#renderer.domElement);
-    this.#camera.position.set(17.5, 7, 7);
+    this.#camera.position.set(12, 7, 12);
     this.#controls.target.set(0, 1.4, 0);
     this.#controls.update();
 
@@ -221,13 +230,12 @@ export class Scene3D {
 
     // Solar panel modules
     this.#modulesGroup = new THREE.Group();
-    const module = this.#buildPanel(THREE, 14, 0);
-    const panel = module.panel;
+    const {panel, base} = this.#buildPanel(THREE, 14);
     panel.rotation.x = (0 - 90) * DEG2RAD;
     const moduleGroup = new THREE.Group();
     moduleGroup.add(panel);
     for (let i = 0; i < 5; i++) {
-      const b = module.base.clone();
+      const b = base.clone();
       b.position.x = (i - (5 - 1) / 2) * 14/5;
       moduleGroup.add(b);
     }
@@ -289,47 +297,50 @@ export class Scene3D {
     resizeObs.observe(canvas);
   }
 
-  #buildPanel(THREE, panelWidth, offset) {
+  #buildPanel(THREE, panelWidth) {
     const panelGroup = new THREE.Group();
     const baseGroup  = new THREE.Group();
 
     const aluminumMat = new THREE.MeshStandardMaterial({ color: 0xf5f6f6, metalness: 0.6, roughness: 0.1 });
-    const cellMat = new THREE.MeshStandardMaterial({ map: buildCellTexture(panelWidth/2), color: 0xffffff, metalness: 0, roughness: 0.1 });
+    const cellMat = new THREE.MeshStandardMaterial({ map: buildCellTexture(panelWidth * 2, 2), color: 0xffffff, metalness: 0, roughness: 0.05 });
 
     const PW = panelWidth, PH = PLANT.panelHeight, PD = 0.04;
 
     const cells = new THREE.Mesh(new THREE.BoxGeometry(PW - 0.02, PH - 0.02, PD), cellMat);
-    cells.position.z = 0.002;
-    cells.castShadow = false;
+    this.setFaceUVs(cells.geometry);
+    cells.position.z = 0.1;
+    cells.castShadow = true;
     cells.receiveShadow = true;
     panelGroup.add(cells);
 
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(PW + 0.06, PH + 0.06, PD), aluminumMat);
-    frame.position.z = -0.01;
-    frame.castShadow = true;
-    frame.receiveShadow = true;
-    panelGroup.add(frame);
+    const panelAxis = new THREE.Mesh(new THREE.BoxGeometry(panelWidth - 0.2, .16, .16), aluminumMat);
+    panelAxis.receiveShadow = true;
+    panelAxis.castShadow = true;
+    panelGroup.add(panelAxis);
 
-    // const back = new THREE.Mesh(new THREE.BoxGeometry(PW - 0.02, PH - 0.02, 0.01), aluminumMat);
-    // back.position.z = -PD / 2 - 0.002;
-    // panelGroup.add(back);
-
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.06, 1.75, 12), aluminumMat);
-    post.position.set(0, 0.9, 0);
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.9, 0.16), aluminumMat);
+    post.position.set(0, 0.85, 0);
     post.castShadow = true;
     post.receiveShadow = true;
     baseGroup.add(post);
 
-    const flange = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.06, 16), aluminumMat);
-    flange.position.set(0, 0.03, 0);
-    flange.castShadow = true;
-    flange.receiveShadow = true;
-    baseGroup.add(flange);
-
-    panelGroup.position.set(0, 1.8, offset);
-    baseGroup.position.set(0, 0, offset);
+    panelGroup.position.set(0, 1.8, 0);
+    baseGroup.position.set(0, 0, 0);
 
     return { panel: panelGroup, base: baseGroup };
+  }
+
+  setFaceUVs(geometry, bifacial = false) {
+    const uv = geometry.attributes.uv;
+    const index = geometry.index;
+    geometry.groups.forEach((group, groupIndex) => {
+      // skip front(4) / back(5)
+      if (groupIndex === 4 || (bifacial && groupIndex === 5)) return;
+      for (let i = group.start; i < group.start + group.count; i++) {
+        uv.setXY(index.getX(i), 0, 0);
+      }
+    });
+    uv.needsUpdate = true;
   }
 
 
@@ -363,7 +374,7 @@ export class Scene3D {
     const sunPos = slerpVec(t.sunPosPrev, t.sunPos, 0.1);
     t.sunPosPrev.copy(sunPos);
     this.#sunSphere.position.copy(sunPos).multiplyScalar(5);
-    this.#sunLight.position.copy(sunPos).multiplyScalar(8);
+    this.#sunLight.position.copy(sunPos).multiplyScalar(18);
 
     this.#sunArrow.position.copy(this.#sunSphere.position);
     setFromForwardUp(this.#sunArrow, sunPos.clone().negate(), new THREE.Vector3(0, 1, 0));

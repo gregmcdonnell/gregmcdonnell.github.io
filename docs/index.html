@@ -87,7 +87,7 @@
       const list = document.getElementById('featured-list');
       try {
         const [featRes, projRes, simRes] = await Promise.all([
-          fetch('data/featured.json'),
+          fetch('featured.json'),
           fetch('projects/manifest.json'),
           fetch('simulations/simulations.json')
         ]);

@@ -12,86 +12,60 @@ export const LOCATIONS = {
     name: "Phoenix, AZ",
     dbdata: "./data/nsrdb_phoenix_local.csv",
     label: "Desert Southwest",
-    timeZone: "America/Phoenix",
-    lat: 33.4,
-    lon: -112.1,
-    altitude: 331,
+    timeZone: "America/Phoenix"
   },
   denver: {
     name: "Denver, CO",
     dbdata: "./data/nsrdb_denver.csv",
     label: "High Altitude",
-    timeZone: "America/Denver",
-    lat: 39.74,
-    lon: -104.98,
-    altitude: 1609,
+    timeZone: "America/Denver"
   },
-  // seville: {
-  //   name: "Seville, Spain",
-  //   timeZone: "Europe/Madrid",
-  //   label: "Mediterranean",
-  //   lat: 37.4,
-  //   lon: -5.98,
-  //   altitude: 9,
-  // },
+  pueblo: {
+    name: "Pueblo, CO",
+    dbdata: "./data/pueblo_CO_38.17_-104.58_tmy-2023.csv",
+    label: "High Altitude",
+    timeZone: "America/Denver"
+  },
+  las_vegas: {
+    name: "Las Vegas, NV",
+    dbdata: "./data/las_vegas_36.45_-114.74_tmy-2023.csv",
+    label: "Desert",
+    timeZone: "America/Los_Angeles"
+  },
+  hartford: {
+    name: "Hartford, CT",
+    dbdata: "./data/hartford_CT_41.89_-72.54_tmy-2023.csv",
+    label: "North East",
+    timeZone: "America/New_York"
+  },
+  palm_springs: {
+    name: "Palm Springs, CA",
+    dbdata: "./data/palmSprings_CA_33.89_-116.54_tmy-2023.csv",
+    label: "Desert",
+    timeZone: "America/Los_Angeles"
+  },
   london: {
     name: "London, UK",
     dbdata: "./data/nsrdb_london.csv",
     timeZone: "Europe/London",
     label: "Temperate Cloudy",
-    lat: 51.5,
-    lon: -0.12,
-    altitude: 11,
   },
-  // mumbai: {
-  //   name: "Mumbai, India",
-  //   label: "Tropical Monsoon",
-  //   timeZone: "Asia/Kolkata",
-  //   lat: 19.08,
-  //   lon: 72.88,
-  //   altitude: 14
-  // },
   oslo: {
     name: "Oslo, Norway",
     dbdata: "./data/nsrdb_oslo.csv",
     label: "Nordic",
     timeZone: "Europe/Berlin",
-    lat: 59.9,
-    lon: 10.75,
-    altitude: 23,
   },
   // reykjavik: {
   //   name: "Reykjavik, Iceland",
   //   label: "Icelandic",
   //   timeZone: "Atlantic/Reykjavik",
-  //   lat: 64.14,
-  //   lon: -21.94,
-  //   altitude: 0,
-  // },
-  // akureyri: {
-  //   name: "Akureyri, Iceland",
-  //   label: "Icelandic",
-  //   timeZone: "Atlantic/Reykjavik",
-  //   lat: 65.68,
-  //   lon: -18.09,
-  //   altitude: 0,
-  // },
-  // sanfrancisco: {
-  //   name: "San Francisco, CA",
-  //   label: "Coastal Fog",
-  //   timeZone: "America/Los_Angeles",
-  //   lat: 37.77,
-  //   lon: -122.42,
-  //   altitude: 16,
   // },
   nairobi: {
     name: "Nairobi, Kenya",
     dbdata: "./data/nsrdb_nairobi_kenya.csv",
     label: "Equatorial",
     timeZone: "Africa/Nairobi",
-    lat: -1.29,
-    lon: 36.82,
-    altitude: 1795,
   },
 };
 

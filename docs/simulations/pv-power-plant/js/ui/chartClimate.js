@@ -7,7 +7,7 @@ const COLORS = {
   text:       "#94a3b8",
 };
 
-export function initSunGraphChart(canvasId, daily, location) {
+export function initSunGraphChart(canvasId) {
   const ctx = document.getElementById(canvasId).getContext("2d");
 
   const opts = baseChartOptions();
@@ -74,24 +74,23 @@ export function initSunGraphChart(canvasId, daily, location) {
 
   return new Chart(ctx, {
     type: "line",
-    data: buildSunGraphData(daily, location),
     options: opts,
     plugins: [verticalLinePlugin, chartAreaBackground],
   });
 }
 
-export function updateSunGraphChart(chart, daily, location) {
-  chart.data = buildSunGraphData(daily, location);
+export function updateSunGraphChart(chart, daily, timeZone) {
+  chart.data = buildSunGraphData(daily, timeZone);
   chart.update();
 }
 
-function buildSunGraphData(daily, location) {
+function buildSunGraphData(daily, timeZone) {
   const hrFmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: location.timeZone,
+    timeZone: timeZone,
     hour: "numeric", minute: "numeric", second: "numeric", hour12: false,
   });
   const dayFmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: location.timeZone,
+    timeZone: timeZone,
     month: "short", day: "numeric",
   });
 
@@ -136,13 +135,12 @@ const CLIMATE = {
   grid:      "rgba(148,163,184,0.12)",
 };
 
-export function initClimateChart(canvasId, monthlySummary) {
+export function initClimateChart(canvasId) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return null;
   const ctx = canvas.getContext("2d");
   return new Chart(ctx, {
     type: "bar",
-    data: buildClimateData(monthlySummary),
     options: buildClimateOptions(),
   });
 }

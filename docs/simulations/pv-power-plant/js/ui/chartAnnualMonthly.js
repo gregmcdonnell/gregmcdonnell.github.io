@@ -12,7 +12,7 @@ const COLORS = {
 
 // ─── #chart-annual — annual simulation monthly totals (MWh) ───────────────────
 
-export function initAnnualChart(canvasId, monthly) {
+export function initAnnualChart(canvasId) {
   const ctx = document.getElementById(canvasId).getContext("2d");
   const opts = baseChartOptions();
   opts.scales = {
@@ -24,7 +24,7 @@ export function initAnnualChart(canvasId, monthly) {
       min: 0,
     },
   };
-  return new Chart(ctx, { type: "bar", data: buildAnnualData(monthly), options: opts });
+  return new Chart(ctx, { type: "bar", options: opts });
 }
 
 export function updateAnnualChart(chart, monthly) {
@@ -68,14 +68,13 @@ function buildAnnualData(monthly) {
 
 // ─── #chart-realday-annual — real-day monthly summary (kWh + peak AC) ─────────
 
-export function initAnnualSummaryChart(canvasId, summary) {
+export function initAnnualSummaryChart(canvasId) {
   const canvas = document.getElementById(canvasId);
   if (!canvas || !window.Chart) return null;
 
   const ctx = canvas.getContext("2d");
   return new window.Chart(ctx, {
     type: "bar",
-    data: buildAnnualSummaryData(summary),
     options: {
       responsive: true,
       maintainAspectRatio: false,

@@ -1,6 +1,6 @@
 import { LOCATIONS, MONTH_NAMES } from "../core/climate.js";
 import { PLANT, DERIVED } from "../core/plant.js";
-import { loadNSRDB, aggregateMonth, monthlyClimateSummary } from "../core/nsrdb.js";
+import { loadNSRDB, monthlyClimateSummary } from "../core/nsrdb.js";
 import { calculateAnnualFromNSRDB, buildLossWaterfall, yearSunTimes, processMonthForAverageDay, dailyTotals } from "../models/simulation.js";
 import { initDayHourlyChart, updateDayHourlyChart, setDayHourlyMarker } from "./chartDayHourly.js";
 import { initAnnualChart, updateAnnualChart, initAnnualSummaryChart, updateAnnualSummaryChart } from "./chartAnnualMonthly.js";
@@ -66,6 +66,7 @@ function updateKPIs(result) {
   setEl("kpi-lcoe",    "$ " + fmt(kpis.lcoe, 1)                + " /MWh");
   setEl("kpi-energy",  fmt(annual.totalAc_kWh / 1000, 0)       + " MWh/yr");
   setEl("kpi-revenue", "$ " + fmt(annual.revenue_usd / 1000, 0) + "k /yr");
+  console.log(fmt(annual.totalAc_kWh / 1000 / PLANT.rowSpacing, 0) + " MWh/yr/area")
 }
 
 function updateMetrics(totals, profile) {
@@ -125,17 +126,8 @@ export async function setLocation(locationKey) {
     `  ·  UTC${timezone >= 0 ? "+" : ""}${timezone}`
   );
 
-  // Init charts once — they persist across location changes
-  if (!dayChart)           dayChart           = initDayHourlyChart("chart-realday");
-  if (!annualChart)        annualChart        = initAnnualChart("chart-annual", []);
-  if (!annualSummaryChart) annualSummaryChart = initAnnualSummaryChart("chart-realday-annual", []);
-  if (!waterfallChart)     waterfallChart     = initWaterfallChart("chart-waterfall", []);
-  if (!sunGraphChart)      sunGraphChart      = initSunGraphChart("chart-sun-graph", yearSunTimes(loc), loc);
-  updateSunGraphChart(sunGraphChart, yearSunTimes(loc), loc);
-
-  const climateSummary = monthlyClimateSummary(dataset);
-  if (!climateChart) climateChart = initClimateChart("chart-climate", climateSummary);
-  else               updateClimateChart(climateChart, climateSummary);
+  updateSunGraphChart(sunGraphChart, yearSunTimes(lat, lon, elevation), loc.timeZone);
+  updateClimateChart(climateChart, monthlyClimateSummary(dataset));
 
   runUpdate();
 }
@@ -146,15 +138,15 @@ export async function setLocation(locationKey) {
  */
 function runUpdate() {
   if (!dataset) return;
-
+  
   const year = dataset.records[0]?.Year ?? 2023;
-  const agg  = aggregateMonth(dataset.byMonth, currentMonth);
+  const agg  = dataset.byMonth[currentMonth].aggregate;
 
   hourlyProfile = processMonthForAverageDay(
     agg, dataset.lat, dataset.lon,
     currentMonth, year, dataset.timezone,
-    fixedTiltDeg * DEG2RAD, fixedAzDeg * DEG2RAD,
-    window.SunCalc, tracking, backtracking
+    fixedTiltDeg * DEG2RAD, fixedAzDeg * DEG2RAD, 
+    tracking, backtracking
   );
 
   if (dayChart) updateDayHourlyChart(dayChart, hourlyProfile);
@@ -226,10 +218,11 @@ function buildControls() {
   const rowSpacingSlider = document.getElementById("rd-row-spacing");
   const rowSpacingVal    = document.getElementById("rd-row-spacing-val");
   if (rowSpacingSlider) {
-    rowSpacingSlider.value = PLANT.rowSpacing;
+    rowSpacingSlider.value = PLANT.rowSpacing / PLANT.panelHeight;
+    rowSpacingVal.textContent = rowSpacingSlider.value;
     rowSpacingSlider.addEventListener("input", e => {
-      PLANT.rowSpacing = +e.target.value;
-      if (rowSpacingVal) rowSpacingVal.textContent = PLANT.rowSpacing + "M";
+      PLANT.rowSpacing = +e.target.value * PLANT.panelHeight;
+      if (rowSpacingVal) rowSpacingVal.textContent = PLANT.rowSpacing / PLANT.panelHeight;
       scene3d.updatePanelSpacing(PLANT.rowSpacing);
       runUpdate();
     });
@@ -309,7 +302,7 @@ function onTimeOfDayChange() {
   }
 }
 
-function populateLocationButtons() {
+function populateLocationButtonsOld() {
   const container = document.getElementById("location-buttons");
   if (!container) return;
   Object.entries(LOCATIONS).forEach(([key, loc]) => {
@@ -323,6 +316,76 @@ function populateLocationButtons() {
       await setLocation(key);
     });
     container.appendChild(btn);
+  });
+}
+
+function populateLocationButtons() {
+  const container = document.getElementById("location-buttons");
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "location-dropdown";
+
+  const selectedBtn = document.createElement("button");
+  selectedBtn.className = "loc-btn dropdown-selected";
+
+  const menu = document.createElement("div");
+  menu.className = "location-menu hidden";
+
+  function updateSelectedButton() {
+    const loc = LOCATIONS[currentLocation];
+
+    selectedBtn.innerHTML = `
+      <div>
+        <span class="loc-name">${loc.name}</span>
+        <span class="loc-label">${loc.label}</span>
+      </div>
+      <span class="dropdown-arrow">▼</span>
+    `;
+  }
+
+  selectedBtn.addEventListener("click", () => {
+    menu.classList.toggle("hidden");
+  });
+
+  Object.entries(LOCATIONS).forEach(([key, loc], i) => {
+    const btn = document.createElement("button");
+
+    btn.className = `loc-btn ${i == 0 ? "active" : ""}`;
+    btn.dataset.key = key;
+
+    btn.innerHTML = `
+      <span class="loc-name">${loc.name}</span>
+      <span class="loc-label">${loc.label}</span>
+    `;
+
+    btn.addEventListener("click", async () => {
+      currentLocation = key;
+      updateSelectedButton();
+
+      menu.querySelectorAll(".loc-btn").forEach(b => { b.classList.remove("active"); });
+      btn.classList.add("active");
+      menu.classList.add("hidden");
+
+      await setLocation(key);
+    });
+
+    menu.appendChild(btn);
+  });
+
+  updateSelectedButton();
+
+  wrapper.appendChild(selectedBtn);
+  wrapper.appendChild(menu);
+  container.appendChild(wrapper);
+
+  // Close dropdown if clicking outside
+  document.addEventListener("click", (e) => {
+    if (!wrapper.contains(e.target)) {
+      menu.classList.add("hidden");
+    }
   });
 }
 
@@ -340,6 +403,17 @@ function initTabs() {
   });
 }
 
+function initCharts() {
+
+  // Init charts once — they persist across location changes
+  dayChart           = initDayHourlyChart("chart-realday");
+  annualChart        = initAnnualChart("chart-annual");
+  annualSummaryChart = initAnnualSummaryChart("chart-realday-annual");
+  waterfallChart     = initWaterfallChart("chart-waterfall");
+  sunGraphChart      = initSunGraphChart("chart-sun-graph");
+  climateChart       = initClimateChart("chart-climate");
+}
+
 function buildScene() {
   scene3d.updatePanelOrientation(fixedTiltDeg, fixedAzDeg, true);
 }
@@ -352,6 +426,7 @@ export async function initUI() {
   populatePlantSpecs();
   populateLocationButtons();
   initTabs();
+  initCharts();
   buildControls();
   buildScene();
   await setLocation(currentLocation);

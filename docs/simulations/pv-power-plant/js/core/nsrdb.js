@@ -57,14 +57,14 @@ function parseNSRDB(csvText) {
 
 
   // Pre-group records by month for fast access
-  const byMonth = Array.from({ length: 13 }, () => []); // index 1-12
+  const byMonth = Array.from({ length: 13 }, () => ({aggregate: {}, records: []})); // index 1-12
   let totalDays = 0;
   const daysBeforeMonth = DAYSINMONTHS.map((count) => {totalDays += count; return totalDays;})
   const byDay = Array.from({ length: 365 }, () => ({day:'', month:'', rs:[]}));
   // console.log(byDay);
   for (const r of records) {
     const m = r["Month"] ?? r["month"];
-    if (m >= 1 && m <= 12) byMonth[m].push(r);
+    if (m >= 1 && m <= 12) byMonth[m].records.push(r);
     const nDaysInLastMonth = daysBeforeMonth[m - 1];
     const dayIndex = nDaysInLastMonth + r["Day"] - 1;
     if (dayIndex >= 0 && dayIndex < 365) {
@@ -74,6 +74,11 @@ function parseNSRDB(csvText) {
       byDay[dayIndex].rs.push(r);
     }
   }
+  
+  for (const m of byMonth) {
+    m.aggregate = aggregateMonth(m.records);
+  }
+  
   return { meta, lat, lon, timezone, elevation, records, byMonth, byDay };
 }
 
@@ -91,17 +96,9 @@ export async function loadNSRDB(url) {
 /**
  * Aggregate all days in a given month into hourly statistics.
  * For each hour 0-23, computes mean, min, max of GHI, DNI, DHI, Temperature.
- *
- *  byMonth — the byMonth array from parseNSRDB
- *  month   — integer 1-12
- *
- * Returns array of 24 objects:
- *  { hour, ghi:{mean,min,max}, dni:{mean,min,max}, dhi:{mean,min,max}, temp:{mean,min,max}, rows }
- *  where rows is the raw array of matching records (for SunCalc use)
  */
-export function aggregateMonth(byMonth, month) {
-  const monthRecords = byMonth[month] ?? [];
 
+function aggregateMonth(monthRecords) {
   // Group by hour
   const byHour = Array.from({ length: 24 }, () => []);
   for (const r of monthRecords) {
@@ -154,7 +151,7 @@ export function monthlyClimateSummary(dataset) {
 
   return Array.from({ length: 12 }, (_, i) => {
     const m = i + 1;
-    const hours = aggregateMonth(dataset.byMonth, m);
+    const hours = dataset.byMonth[m].aggregate;
 
     let ghiSum = 0, dniSum = 0, dhiSum = 0, clearDniSum = 0;
     let tempSum = 0, tempMin = Infinity, tempMax = -Infinity, count = 0;
