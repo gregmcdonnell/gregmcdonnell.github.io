@@ -1,5 +1,19 @@
 [
   {
+    "title": "PV Solar Power Plant",
+    "date": "2026-05",
+    "description": "A look into the modeling and physics of utility-scale solar power plants.",
+    "tags": [
+      "simulation",
+      "solar",
+      "power",
+      "photovoltaic"
+    ],
+    "image": "",
+    "url": "/projects/pv-power-plant",
+    "slug": "pv-power-plant"
+  },
+  {
     "title": "Solar System Simulation",
     "date": "2026-02",
     "description": "",

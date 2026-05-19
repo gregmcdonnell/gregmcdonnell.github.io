@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- <script src="https://cdn.jsdelivr.net/npm/heatmapjs@2.0.2/heatmap.min.js"></script> -->
+    <script src="myheatmap.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/proj4@2.20.8/dist/proj4.min.js"></script>
+
+    <style>
+
+        html, body {
+            background: #0d1117;
+            color: white;
+        }
+        #controls {
+            position: relative;
+            display: inline-block;
+            z-index: 10;
+        }
+
+        #map-wrapper {
+            background: #323438;
+            overflow: hidden;
+            position: absolute;
+            top: 0;
+            /* border: 2px solid black; */
+        }
+        
+        #svg-us-container{
+            position: absolute;
+            inset: 0;
+            /* border: 2px solid blue; */
+        }
+        
+        #heatmap-us {
+            position: absolute;
+            inset: 0;
+        }
+        .slider-parent {
+            font-family: "Space Grotesk", sans-serif;
+            display: grid;
+            grid-template-columns: 50px 150px auto;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <div id="controls">
+            <div style="display: none;">
+                <span>scale</span>
+                <input type="range" class="slider" id="scale" min="2.0" max="2.3" step="0.001" value="2.16" />
+                <span id="val-scale">0</span>
+            </div>
+            <div style="display: none;">
+                <span>x-offset</span>
+                <input type="range" class="slider" id="x-offset" min="0.4" max="0.6" step="0.001" value="0" />
+                <span id="val-x-offset">0</span>
+            </div>
+            <div style="display: none;">
+                <span>y-offset</span>
+                <input type="range" class="slider" id="y-offset" min="0.2" max="0.4" step="0.001" value="0" />
+                <span id="val-y-offset">0</span>
+            </div>
+            <div class="slider-parent">
+                <span>Radius</span>
+                <input type="range" class="slider" id="radius" min="0" max="40" step="0.001" value="0" />
+                <span id="val-radius">0</span>
+            </div>
+            <div class="slider-parent">
+                <span>Max</span>
+                <input type="range" class="slider" id="max" min="1" max="1000" step="1" value="0" />
+                <span id="val-max">0</span>
+            </div>
+        </div>
+        
+        <div id="map-wrapper">
+            <div id="svg-us-container"></div>
+            <div id="heatmap-us" ></div>
+        </div>
+    </main>
+
+    <!-- <script type="module" src="./js/ui/mapUS.js"></script> -->
+    <script type="module" src="main.js"></script>
+</body>
+
+</html>

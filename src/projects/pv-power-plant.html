@@ -1,0 +1,133 @@
+<head>
+    <script type="application/json" id="metadata">
+    {
+        "title": "PV Solar Power Plant",
+        "date": "2026-05",
+        "description": "A look into the modeling and physics of utility-scale solar power plants.",
+        "tags": ["simulation", "solar", "power", "photovoltaic"],
+        "image": ""
+    }
+    </script>
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism.min.css" rel="stylesheet">
+</head>
+
+<main>
+    <div class="hero">
+        <div class="hero-meta">
+            <span>2025</span>
+        </div>
+
+        <h1>Photovoltaic Solar Power Plant Simulation</h1>
+
+        <p class="hero-sub">
+            A look into the modeling and physics of utility-scale solar power plants.
+        </p>
+
+    </div>
+    <article>
+        <h1 id="building-a-utility-scale-pv-power-plant-simulator">Building a Utility-Scale PV Power Plant Simulator</h1>
+        <h2 id="introduction">Introduction</h2>
+        <p>[TODO: Personal motivation — why build this? Mention background in solar/energy, interest in simulation, or the gap you noticed between high-level solar calculators and a tool that actually models the physics.]</p>
+        <p>Photovoltaic power plants are complex systems. The energy a plant produces in a year depends on dozens of interacting factors: where it sits on the globe, how panels are tilted and oriented, what the weather looks like hour by hour, how heat degrades module efficiency, and how losses stack up across wiring, soiling, and inverter conversion. Most public tools treat these factors as black boxes.</p>
+        <p>This simulation pulls the lid off. It models a <strong>1 MWp utility-scale solar plant</strong> from first principles — sun position geometry through to grid-delivered AC energy — using real TMY (Typical Meteorological Year) weather data from the NREL National Solar Radiation Database (NSRDB) for locations across the world.</p>
+        <hr>
+        <h2 id="what-the-simulation-models">What the Simulation Models</h2>
+        <p>The plant is fixed at <strong>1,000 kWp DC</strong> (2,500 × 400 Wp modules) feeding an <strong>800 kW AC inverter</strong> — a DC:AC ratio of 1.25:1, a common utility-scale design choice that trades some clipping loss for a cheaper, right-sized inverter.</p>
+        <p>From a chosen location and panel configuration, the simulation computes:</p>
+        <ul>
+        <li>Hourly irradiance on the panel surface (Plane-of-Array, POA)</li>
+        <li>Cell temperature and its effect on power output</li>
+        <li>DC generation with a full loss waterfall</li>
+        <li>AC output through a realistic inverter efficiency curve</li>
+        <li>Annual KPIs: Performance Ratio, Capacity Factor, Specific Yield, LCOE, and revenue</li>
+        </ul>
+        <hr>
+        <h2 id="the-physics-stack">The Physics Stack</h2>
+        <h3 id="sun-position">Sun Position</h3>
+        <p>Sun position is calculated using the SunCalc library, which implements standard solar geometry equations to return solar altitude (elevation above the horizon) and azimuth (compass bearing) for any latitude, longitude, and time. This drives both the irradiance calculation and the 3D scene visualization.</p>
+        <h3 id="irradiance-transposition-hay-davies-model-">Irradiance Transposition (Hay-Davies Model)</h3>
+        <p>Weather data gives us three irradiance components on a horizontal surface: GHI (global), DNI (direct normal), and DHI (diffuse horizontal). Getting from those to the actual irradiance hitting a tilted, oriented panel — Plane-of-Array (POA) — requires transposition.</p>
+        <p>The simulation uses the <strong>Hay-Davies model</strong>, which separates the diffuse sky radiation into anisotropic (sun-facing) and isotropic (whole-sky) components. Ground-reflected radiation is added using a standard albedo of 0.2.</p>
+        <pre><code>POA = DNI·cos(θ)·IAM + DHI·(anisotropy·Rb + (<span class="hljs-number">1</span>−anisotropy)·(<span class="hljs-number">1</span>+cos(tilt))/<span class="hljs-number">2</span>) + GHI·<span class="hljs-number">0.2</span>·(<span class="hljs-number">1</span>−cos(tilt))/<span class="hljs-number">2</span>
+        </code></pre><p>At high incidence angles, the <strong>Martin-Ruiz IAM model</strong> derate the beam component to account for increased reflectance at the panel surface.</p>
+        <h3 id="cell-temperature-faiman-model-">Cell Temperature (Faiman Model)</h3>
+        <p>Module efficiency drops with heat. The simulation uses the <strong>Faiman (2008) thermal model</strong>, an empirically-grounded approach that treats the panel as a heat balance between absorbed radiation and convective cooling:</p>
+        <pre><code><span class="hljs-attr">T_cell</span> = T_ambient + POA / (U0 + U1·wind_speed)
+        </code></pre><p>With coefficients U0 = 25 W/m²/°C and U1 = 6.84 W/m²/°C·(m/s), a panel in still air at 30°C ambient and 800 W/m² of POA reaches roughly 62°C — and at −0.34%/°C power coefficient, that&#39;s a ~12% output reduction compared to STC.</p>
+        <h3 id="dc-output-and-loss-waterfall">DC Output and Loss Waterfall</h3>
+        <p>After correcting Isc, Voc, and Pmax from STC to actual operating conditions, the gross DC output flows through four sequential loss factors:</p>
+        <table>
+        <thead>
+        <tr>
+        <th>Loss</th>
+        <th>Value</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+        <td>Soiling</td>
+        <td>2.0%</td>
+        </tr>
+        <tr>
+        <td>Shading &amp; mismatch</td>
+        <td>1.5%</td>
+        </tr>
+        <tr>
+        <td>DC wiring</td>
+        <td>1.5%</td>
+        </tr>
+        </tbody>
+        </table>
+        <p>These are applied multiplicatively, giving a net DC output ready for the inverter.</p>
+        <h3 id="inverter-model">Inverter Model</h3>
+        <p>Rather than a flat efficiency percentage, the inverter uses a <strong>piecewise linear S-curve</strong> over the load fraction (DC input / AC rated capacity). Efficiency climbs quickly from near-zero at startup, peaks around 98.2% at 50% load, and falls slightly at high load. At a DC:AC ratio of 1.25, the inverter clips on the best solar days — visible in the loss waterfall as &quot;inverter clipping.&quot;</p>
+        <h3 id="self-shading-and-backtracking">Self-Shading and Backtracking</h3>
+        <p>For single-axis tracking systems, row spacing determines how much one row shades the next at low sun angles. The simulation computes the <strong>shaded fraction</strong> geometrically from row height and spacing, then optionally applies <strong>backtracking</strong>: rotating rows back from their ideal sun-following angle to eliminate inter-row shading during the morning and evening hours. This is standard practice for utility-scale tracking systems.</p>
+        <hr>
+        <h2 id="data-nsrdb-tmy-files">Data: NSRDB TMY Files</h2>
+        <p>Each location uses real hourly data from NREL&#39;s NSRDB — 8,760 records per year covering GHI, DNI, DHI, temperature, and wind speed. The simulation aggregates this into monthly profiles, computing mean, minimum, and maximum across all days in each month to show the typical day alongside best- and worst-case bounds.</p>
+
+        <hr>
+        <h2 id="key-performance-indicators">Key Performance Indicators</h2>
+        <p>The KPI strip at the top of the simulation updates live as you change location, orientation, or tracking mode:</p>
+        <p><strong>Performance Ratio (PR)</strong> measures actual AC output as a fraction of ideal (as if the plant ran at STC all day at the given POA irradiance). It captures all real-world losses — temperature, soiling, wiring, inverter inefficiency — in a single normalized number. Typical range: 75–85%.</p>
+        <p><strong>Capacity Factor (CF)</strong> is the ratio of annual AC output to what the plant would produce running flat-out at rated capacity for 8,760 hours. For utility solar, this typically lands between 17–30% depending on location.</p>
+        <p><strong>Specific Yield</strong> normalizes annual AC output by DC capacity (kWh/kWp/year) — the standard metric for comparing sites or designs regardless of system size.</p>
+        <p><strong>LCOE</strong> uses a capital recovery factor with 6% WACC over a 25-year project life:</p>
+        <pre><code><span class="hljs-attr">LCOE</span> = (CapEx · CRF + OpEx) / Annual_AC_output
+        <span class="hljs-attr">CRF</span>  = r·(<span class="hljs-number">1</span>+r)^n / ((<span class="hljs-number">1</span>+r)^n − <span class="hljs-number">1</span>)
+        </code></pre><p>At $900/kWp CapEx and $15/kW/yr OpEx, LCOE typically lands between $35–55/MWh depending on location.</p>
+        <p><strong>Annual Revenue</strong> is calculated at a $0.065/kWh PPA rate — a placeholder representing a power purchase agreement price.</p>
+        <hr>
+        <h2 id="what-you-can-explore">What You Can Explore</h2>
+        <p>[TODO: Walk through a few interesting comparisons or findings from the simulation. Some ideas:]</p>
+        <ul>
+        <li><strong>Location matters most</strong>: Phoenix vs. Oslo produces roughly 2× the annual energy. [Add specific numbers from your simulation runs.]</li>
+        <li><strong>Tracking vs. fixed tilt</strong>: Single-axis tracking adds ~20–30% annual yield over a fixed south-facing array. [Add your data.]</li>
+        <li><strong>The cost of clipping</strong>: With a 1.25 DC:AC ratio, summer afternoons in desert locations show visible clipping in the waterfall. Is that the right tradeoff?</li>
+        <li><strong>Temperature penalty</strong>: The hottest locations lose more to thermal losses — partially offsetting their irradiance advantage.</li>
+        </ul>
+        <hr>
+
+        <h2 id="limitations-and-next-steps">Limitations and Next Steps</h2>
+        <p>[TODO: Be honest about what the simulation doesn&#39;t model and what you&#39;d add with more time:]</p>
+        <ul>
+        <li>Single representative &quot;average day&quot; per month rather than full stochastic simulation</li>
+        <li>No soiling variability or cleaning schedule optimization</li>
+        <li>Fixed loss assumptions (soiling, mismatch) rather than configurable</li>
+        <li>No bifacial module model (rear-side irradiance gain)</li>
+        <li>Economic model uses simplified LCOE without degradation curve or financing structure</li>
+        <li>[Your own notes here]</li>
+        </ul>
+        <hr>
+        <h2 id="conclusion">Conclusion</h2>
+        <p>[TODO: Wrap up with what building this taught you, what surprised you about the physics or the data, and a link to the live simulation.]</p>
+        <hr>
+        <p><em>This simulation uses weather data from the <a href="https://nsrdb.nlr.gov/">NLR National Solar Radiation Database (NSRDB)</a>. Solar position calculations use <a href="https://github.com/mourner/suncalc">SunCalc.js</a></em></p>
+
+    </article>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/components/prism-core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/plugins/autoloader/prism-autoloader.min.js"></script>
+</main>

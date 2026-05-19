@@ -5,8 +5,13 @@
     "date": "2026-05",
     "slug": "pv-power-plant",
     "url": "/simulations/pv-power-plant",
-    "project_url": "",
-    "tags": "",
+    "project_url": "/projects/pv-power-plant",
+    "tags": [
+      "simulation",
+      "solar",
+      "power",
+      "photovoltaic"
+    ],
     "software": ""
   },
   {

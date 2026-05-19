@@ -136,6 +136,14 @@ main {
   padding-bottom: 5rem;
 }
 
+figure figcaption {
+  display: flex;
+  justify-content: center;
+  font-style: italic;
+  font-size: smaller;
+  padding: 6px 10px;
+}
+
 /* ── Filter nav ── */
 .filter-nav {
   display: flex;

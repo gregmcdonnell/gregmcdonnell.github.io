@@ -171,6 +171,7 @@
       text-align: left;
       transition: all 0.15s;
       color: var(--text-sec);
+      text-decoration: none;
     }
 
     .loc-btn:hover {
@@ -750,8 +751,8 @@
         </svg>
       </div>
       <div>
-        <div class="brand-name">SOLARSIM</div>
-        <div class="brand-tag">1 MWp PLANT SIMULATION ENGINE</div>
+        <div class="brand-name"></div>
+        <div class="brand-tag">PHOTOVOLTAIC PLANT SIMULATION ENGINE</div>
       </div>
     </div>
     <div class="header-location">
@@ -764,6 +765,9 @@
   <!-- ── Sidebar ── -->
   <aside class="sidebar">
 
+    <div class="sidebar-section">
+      <a class="loc-btn" href="us-solar-map/" target="_blank">US PV Projects Map</a>
+    </div>
     <!-- Location selector -->
     <div class="sidebar-section">
       <div class="section-label">Site location</div>
@@ -858,7 +862,7 @@
       <button class="tab-btn active" data-tab="realdata">Day View</button>
       <button class="tab-btn" data-tab="annual">Annual</button>
       <button class="tab-btn" data-tab="losses">Loss analysis</button>
-      <button class="tab-btn" data-tab="sun-graph">Climate</button>
+      <button class="tab-btn" data-tab="climate">Climate</button>
     </div>
 
     <div class="main-panel-layout">
@@ -1013,7 +1017,7 @@
           </div>
         </div>
 
-        <div class="tab-panel" id="panel-sun-graph">
+        <div class="tab-panel" id="panel-climate">
 
           <div class="inner-panel">
             <div class="chart-wrap" style="flex:none;">
