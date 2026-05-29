@@ -1,29 +1,49 @@
 
 import { initHeatmap, updateHeatmap } from "./mapUS.js";
 
-const size = 1500;
-await initHeatmap(size);
+
+const map = L.map('map', {
+    zoomSnap: 0,
+    zoomDelta: 0.1,
+    wheelPxPerZoomLevel: 10,
+}).setView([40, -96], 5);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 11,
+    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+}).addTo(map);
+// L.tileLayer('https://tile.opentopomap.org/{z}/{x}/{y}.png', {
+//   attribution: '&copy; OpenStreetMap contributors'
+// }).addTo(map);
+// L.graticule({
+//   interval: 10,        // degrees between lines
+//   style: {
+//     color: '#333',
+//     weight: 1,
+//     opacity: 0.5
+//   }
+// }).addTo(map);
+L.latlngGraticule({
+  showLabel: true,
+  opacity: 0.5,
+  weight: 1,
+  color: '#333'
+}).addTo(map);
 
 
-const scaleEl = document.getElementById("scale");
-const xEl = document.getElementById("x-offset");
-const yEl = document.getElementById("y-offset");
+await initHeatmap(map);
+
+
 const radiusEl = document.getElementById("radius");
 const maxEl = document.getElementById("max");
 
-const scaleVal = document.getElementById("val-scale");
-const xVal = document.getElementById("val-x-offset");
-const yVal = document.getElementById("val-y-offset");
 const radiusVal = document.getElementById("val-radius");
 const maxVal = document.getElementById("val-max");
 
 initMapInteraction();
 
-
-
 function initMapInteraction() {
     const wrapper = document.getElementById("map-wrapper");
-    const svg = document.getElementById("svg-us-container");
+    // const svg = document.getElementById("svg-us-container");
     const heatmapEl = document.getElementById("heatmap-us");
     let zoom = 1;
     let panX = 0;
@@ -34,7 +54,7 @@ function initMapInteraction() {
     let panX0 = 0;
     let panY0 = 0;
 
-    svg.style.transformOrigin = "0 0";
+    // svg.style.transformOrigin = "0 0";
     heatmapEl.style.transformOrigin = "0 0";
     wrapper.style.cursor = "grab";
     wrapper.style.userSelect = "none";
@@ -44,18 +64,15 @@ function initMapInteraction() {
     const origX = r0.left;
     const origY = r0.top;
 
-    initSlider(scaleEl, scaleVal, 2.17);
-    initSlider(yEl, yVal, 0.276);
-    initSlider(xEl, xVal, 0.5);
-    initSlider(radiusEl, radiusVal, 8);
-    initSlider(maxEl, maxVal, 100);
+    initSlider(radiusEl, radiusVal, 10);
+    initSlider(maxEl, maxVal, 80);
 
     scaledUpdate();
     
 
-    function applySVGTransform() {
-        svg.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
-    }
+    // function applySVGTransform() {
+    //     svg.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+    // }
     function applyHeatmapTranslation() {
         heatmapEl.style.transform = `translate(${panX - panX0}px, ${panY - panY0}px) scale(${1})`;
     }
@@ -78,13 +95,14 @@ function initMapInteraction() {
     }
 
     function scaledUpdate() {
-        updateHeatmap(+scaleEl.value * zoom, +xEl.value, +yEl.value, radiusEl.value * Math.sqrt(zoom), maxEl.value / zoom, panX + (zoom - 1) * +xEl.value * size, panY + (zoom - 1) * +yEl.value * size);
+        zoom = map.getZoom() * 0.2;
+        updateHeatmap(map, radiusEl.value * Math.sqrt(zoom), maxEl.value / zoom);
     }
     function resetHeatmap() {
         // zoom0 = zoom;
-        panX0 = panX;
-        panY0 = panY;
-        heatmapEl.style.transform = `translate(${0}px, ${0}px) scale(${1})`;
+        // panX0 = panX;
+        // panY0 = panY;
+        // heatmapEl.style.transform = `translate(${0}px, ${0}px) scale(${1})`;
         scaledUpdate();
     }
 
@@ -101,7 +119,7 @@ function initMapInteraction() {
         panX = e.clientX - origX - lx * zoom;
         panY = e.clientY - origY - ly * zoom;
 
-        applySVGTransform();
+        // applySVGTransform();
         resetHeatmap();
     }, { passive: false });
 
@@ -120,12 +138,12 @@ function initMapInteraction() {
         wrapper.style.cursor = "grabbing";
     });
 
-    const throttledSlowUpdate = throttle(resetHeatmap, 100);
+    const throttledSlowUpdate = throttle(resetHeatmap, 400);
     window.addEventListener("mousemove", (e) => {
         if (!dragging) return;
         panX = panStartX + (e.clientX - dragStartX);
         panY = panStartY + (e.clientY - dragStartY);
-        applySVGTransform();
+        // applySVGTransform();
         applyHeatmapTranslation();
         throttledSlowUpdate();
     });
@@ -142,6 +160,25 @@ function initMapInteraction() {
     //       resetTransform();
     //     }
     // });
+
+    map.on('move', () => {
+        const center = map.getCenter();
+
+        // applyHeatmapTranslation();
+        // throttledSlowUpdate();
+        resetHeatmap();
+    });
+
+    map.on('moveend', () => {
+
+        // applyHeatmapTranslation();
+        resetHeatmap();
+    });
+
+    map.on('zoom', () => {
+        
+    });
+
 }
 
 function throttle(fn, delay) {

@@ -6,6 +6,10 @@ import { ProceduralSkybox } from '../../../shared/procedural-skybox.js';
 
 const DEG2RAD = Math.PI / 180;
 
+const PANELROWS = 30;
+const PANELCOLS = 10;
+
+
 // ─── Pure utility functions (no scene state) ────────────────────────────────
 
 function lerpAngleWrapped(start, target, t) {
@@ -44,7 +48,7 @@ function buildCellTexture(repeatX, repeatY) {
   c.height = height;
   const ctx = c.getContext("2d");
 
-  ctx.fillStyle = "#1a2340";
+  ctx.fillStyle = "#12172b";
   ctx.fillRect(0, 0, width, height);
 
   const cols = 6, rows = 12;
@@ -90,16 +94,16 @@ function buildCellTexture(repeatX, repeatY) {
   // return THREE.CanvasTexture ? new THREE.CanvasTexture(c) : null;
 }
 
-function buildCompass(THREE, scene) {
+function buildCompass(scene, scale) {
   const compassGroup = new THREE.Group();
-  const mat = new THREE.MeshBasicMaterial({ color: 0x2a2a2a });
+  const mat = new THREE.MeshBasicMaterial({ color: 0x000000 });
   const geo = new THREE.PlaneGeometry(1, 1);
   const textureLoader = new THREE.TextureLoader();
   const dirs = [
-    { pos: [0, 0, -4.5], label: "N" },
-    { pos: [ 4.5, 0, 0], label: "E" },
-    { pos: [0, 0,  4.5], label: "S" },
-    { pos: [-4.5, 0, 0], label: "W" },
+    { pos: [0, 0, -3.5], label: "N" },
+    { pos: [ 3.5, 0, 0], label: "E" },
+    { pos: [0, 0,  3.5], label: "S" },
+    { pos: [-3.5, 0, 0], label: "W" },
   ];
 
   const halfPI = -Math.PI / 2;
@@ -112,16 +116,18 @@ function buildCompass(THREE, scene) {
   });
 
   const nsMesh = new THREE.Mesh(geo, mat);
-  nsMesh.scale.set(0.05, 8, 1);
+  nsMesh.scale.set(0.2, 6, 1);
   nsMesh.rotateX(-Math.PI / 2);
   compassGroup.add(nsMesh);
 
   const ewMesh = new THREE.Mesh(geo, mat);
-  ewMesh.scale.set(8, 0.05, 1);
+  ewMesh.scale.set(6, 0.2, 1);
   ewMesh.rotateX(-Math.PI / 2);
   compassGroup.add(ewMesh);
   compassGroup.position.set(0, .1, 0);
+  compassGroup.scale.set(scale, scale, scale);
   scene.add(compassGroup);
+  return compassGroup;
 }
 
 
@@ -142,7 +148,11 @@ export class Scene3D {
   #groundMesh  = null;
   #ambientLight = null;
   #interpTargets = null;
+  #csm = null;
   #modules     = [];
+  #instancedPanel = null;
+  #instancedPost = null;
+  rotationAxis = null;
 
   constructor(canvas) {
     this.#init(canvas);
@@ -161,6 +171,7 @@ export class Scene3D {
       panelOrientationPrev: new THREE.Vector2(0, 0),
       sunPos:     new THREE.Vector3(0, 1, 0),
       sunPosPrev: new THREE.Vector3(0, 1, 0),
+      timeOfDay: 0, timeOfDayPrev: 0,
     };
 
     const W = canvas.clientWidth  || canvas.width  || 420;
@@ -172,17 +183,18 @@ export class Scene3D {
     this.#renderer.setSize(W, H, false);
     this.#renderer.shadowMap.enabled = true;
     this.#renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.#renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.#renderer.toneMappingExposure = 1.1;
-    this.#renderer.outputColorSpace = THREE.SRGBColorSpace;
+    // this.#renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    // this.#renderer.toneMappingExposure = 1.1;
+    // this.#renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     // Scene
     this.#scene = new THREE.Scene();
     this.#scene.background = new THREE.Color(0x0a1628);
-    this.#scene.fog = new THREE.FogExp2(0x0a1628, 0.008);
+    this.#scene.fog = new THREE.FogExp2(0x505050, 0.008);
+    // this.#scene.fog.color = new THREE.Color(0x505050);
 
     // Camera + controls
-    this.#camera = new THREE.PerspectiveCamera(42, W / H, 0.1, 200);
+    this.#camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 300);
     this.#controls = new THREE.OrbitControls(this.#camera, this.#renderer.domElement);
     this.#camera.position.set(12, 7, 12);
     this.#controls.target.set(0, 1.4, 0);
@@ -194,20 +206,18 @@ export class Scene3D {
     this.#scene.add(new THREE.HemisphereLight(0x94c5e8, 0x2a3a20, 0.5));
 
     this.#sunLight = new THREE.DirectionalLight(0xfff4cc, 2.5);
-    this.#sunLight.position.set(5, 8, 5);
+    // this.#sunLight.position.set(50, 80, 50);
     this.#sunLight.castShadow = true;
     this.#sunLight.shadow.mapSize.width  = 2048;
     this.#sunLight.shadow.mapSize.height = 2048;
     this.#sunLight.shadow.camera.near   = 0.5;
-    this.#sunLight.shadow.camera.far    = 60;
-    this.#sunLight.shadow.camera.left   = -10;
-    this.#sunLight.shadow.camera.right  =  10;
-    this.#sunLight.shadow.camera.top    =  10;
-    this.#sunLight.shadow.camera.bottom = -10;
-    this.#sunLight.shadow.bias   = -0.001;
-    this.#sunLight.shadow.radius = 2;
+    this.#sunLight.shadow.camera.far    = 200;
+    const shadowCameraSize = 20;
+    this.#setShadowCameraSize(shadowCameraSize);
+    // this.#sunLight.shadow.bias   = -0.001;
+    // this.#sunLight.shadow.radius = 2;
     this.#scene.add(this.#sunLight);
-    this.#scene.add(this.#sunLight.target);
+    // this.#scene.add(this.#sunLight.target);
 
     // Procedural Skybox
     this.#skybox = new ProceduralSkybox(THREE);
@@ -216,21 +226,23 @@ export class Scene3D {
 
     // Ground + grid
     const groundGeo = new THREE.PlaneGeometry(300, 300);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x1a2e1a, metalness: 0, roughness: 0.9 });
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x0f270f, metalness: 0, roughness: 0.9 }); // #0f270f
     this.#groundMesh = new THREE.Mesh(groundGeo, groundMat);
     this.#groundMesh.rotation.x = -Math.PI / 2;
     this.#groundMesh.receiveShadow = true;
     this.#scene.add(this.#groundMesh);
 
-    const grid = new THREE.GridHelper(20, 20, 0x1e3a1e, 0x1e3a1e);
-    grid.material.opacity = 0.4;
-    grid.material.transparent = true;
-    grid.position.y = 0.05;
-    this.#scene.add(grid);
+    // const grid = new THREE.GridHelper(20, 20, 0x1e3a1e, 0x1e3a1e);
+    // grid.material.opacity = 0.4;
+    // grid.material.transparent = true;
+    // grid.position.y = 0.05;
+    // this.#scene.add(grid);
 
     // Solar panel modules
     this.#modulesGroup = new THREE.Group();
-    const {panel, base} = this.#buildPanel(THREE, 14);
+    const {panel, base, mergedGeo, axisGeo, postGeo, aluminumMat, cellMat} = this.#buildPanel(THREE, 14);
+    this.#initInstancedMeshes(mergedGeo, axisGeo, postGeo, aluminumMat, cellMat);
+
     panel.rotation.x = (0 - 90) * DEG2RAD;
     const moduleGroup = new THREE.Group();
     moduleGroup.add(panel);
@@ -239,8 +251,6 @@ export class Scene3D {
       b.position.x = (i - (5 - 1) / 2) * 14/5;
       moduleGroup.add(b);
     }
-    // this.#modulesGroup.add(moduleGroup);
-    // this.#modules.push(moduleGroup);
 
     const spacing = PLANT.rowSpacing;
     for (let i = 0; i < 6; i++) {
@@ -250,39 +260,59 @@ export class Scene3D {
       this.#modules.push(moduleClone);
     }
 
-    this.#scene.add(this.#modulesGroup);
+    // this.#scene.add(this.#modulesGroup);
 
-    // Sun sphere
-    const sunGeo = new THREE.SphereGeometry(0.18, 16, 16);
-    const sunMat = new THREE.MeshBasicMaterial({ color: 0xffee66 });
-    this.#sunSphere = new THREE.Mesh(sunGeo, sunMat);
-    this.#sunSphere.frustumCulled = false;
-    this.#scene.add(this.#sunSphere);
 
     // Sun arrow
-    this.#sunArrow = new THREE.ArrowHelper(
-      new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, 0, 0), 1.8, 0xffcc00, 0.4, 0.25
+    this.#sunArrow = new THREE.Group();
+    const arrow = new THREE.ArrowHelper(
+      new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, -1, 0), 1, 0xffcc00, 0.25, 0.15
     );
-    this.#sunArrow.line.material.linewidth = 2;
-    this.#scene.add(this.#sunArrow);
+    arrow.line.material.linewidth = 2;
+    this.#sunArrow.add(arrow);
 
-    const quadGeo = new THREE.PlaneGeometry(1, 1);
+
+    // Sun sphere
+    const sunGeo = new THREE.SphereGeometry(0.1, 16, 16);
+    const sunMat = new THREE.MeshBasicMaterial({ color: 0xffee66 });
+    this.#sunSphere = new THREE.Mesh(sunGeo, sunMat);
+    this.#sunSphere.position.y = -1;
+    this.#sunArrow.add(this.#sunSphere);
+
+    const quadGeo = new THREE.PlaneGeometry(0.5, 0.5);
     const quadMat = new THREE.MeshBasicMaterial({ color: 0xffee66, side: THREE.DoubleSide, transparent: true, opacity: 0.5 });
     const quad = new THREE.Mesh(quadGeo, quadMat);
+    quad.position.y = -1;
     quad.rotateX(Math.PI / 2);
     this.#sunArrow.add(quad);
+    this.#sunArrow.scale.set(0.03, 0.03, 0.03);
+    this.#scene.add(this.#sunArrow);
 
-    buildCompass(THREE, this.#scene);
+
+    const compass = buildCompass(this.#scene, 0.01);
+
+
+    const anchorNDC = new THREE.Vector3(-0.7, -0.75, 0.5);
+    const temp = new THREE.Vector3();
 
     // Render loop
     const render = () => {
       this.#animId = requestAnimationFrame(render);
       this.#controls.update();
       this.#interpolateTowardsTargets();
+      this.#updateNDCObject(anchorNDC, compass);
+      this.#updateNDCObject(anchorNDC, this.#sunArrow);
       this.#renderer.render(this.#scene, this.#camera);
       // console.log(this.#camera.position);
     };
     render();
+
+    this.#controls.addEventListener('change', () => {
+      const dist = this.#camera.position.length();
+      this.#setShadowCameraSize(Math.max(25, dist * 2));
+      // compass.position = this.#camera.position + 
+
+    });
 
     // Resize handler
     const resizeObs = new ResizeObserver(() => {
@@ -297,6 +327,7 @@ export class Scene3D {
     resizeObs.observe(canvas);
   }
 
+
   #buildPanel(THREE, panelWidth) {
     const panelGroup = new THREE.Group();
     const baseGroup  = new THREE.Group();
@@ -306,19 +337,27 @@ export class Scene3D {
 
     const PW = panelWidth, PH = PLANT.panelHeight, PD = 0.04;
 
-    const cells = new THREE.Mesh(new THREE.BoxGeometry(PW - 0.02, PH - 0.02, PD), cellMat);
-    this.setFaceUVs(cells.geometry);
-    cells.position.z = 0.1;
+    const cellGeo = new THREE.BoxGeometry(PW - 0.02, PH - 0.02, PD);
+    cellGeo.translate(0, 0, 0.1);
+    this.#setFaceUVs(cellGeo);
+    const cells = new THREE.Mesh(cellGeo, cellMat);
+    // cells.position.z = 0.1;
     cells.castShadow = true;
     cells.receiveShadow = true;
     panelGroup.add(cells);
 
-    const panelAxis = new THREE.Mesh(new THREE.BoxGeometry(panelWidth - 0.2, .16, .16), aluminumMat);
+    const axisGeo = new THREE.BoxGeometry(panelWidth - 0.2, .16, .16);
+    axisGeo.attributes.uv.array.fill(0);
+    axisGeo.attributes.uv.needsUpdate = true;
+    const panelAxis = new THREE.Mesh(axisGeo, aluminumMat);
     panelAxis.receiveShadow = true;
     panelAxis.castShadow = true;
     panelGroup.add(panelAxis);
 
-    const post = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.9, 0.16), aluminumMat);
+    const mergedGeo = THREE.BufferGeometryUtils.mergeBufferGeometries([cellGeo, axisGeo]);
+
+    const postGeo = new THREE.BoxGeometry(0.08, 1.9, 0.16);
+    const post = new THREE.Mesh(postGeo, aluminumMat);
     post.position.set(0, 0.85, 0);
     post.castShadow = true;
     post.receiveShadow = true;
@@ -327,10 +366,73 @@ export class Scene3D {
     panelGroup.position.set(0, 1.8, 0);
     baseGroup.position.set(0, 0, 0);
 
-    return { panel: panelGroup, base: baseGroup };
+    return { panel: panelGroup, base: baseGroup, mergedGeo, axisGeo, postGeo, aluminumMat, cellMat};
   }
 
-  setFaceUVs(geometry, bifacial = false) {
+
+  #initInstancedMeshes(cellGeo, axisGeo, postGeo, aluminumMat, cellMat) {
+    const spacingX = 16;
+    const spacingZ = PLANT.rowSpacing;
+    const count = PANELROWS * PANELCOLS;
+
+    this.#instancedPanel = new THREE.InstancedMesh(cellGeo, cellMat, count);
+    this.#instancedPost = new THREE.InstancedMesh(postGeo, aluminumMat, count * 5);
+    this.#scene.add(this.#instancedPanel);
+    this.#scene.add(this.#instancedPost);
+    this.#instancedPanel.castShadow = true;
+    this.#instancedPanel.receiveShadow = true;
+    this.#instancedPost.castShadow = true;
+    this.#instancedPost.receiveShadow = true;
+    // instancedPanel.rotateY(Math.PI / 2)
+
+    const matrix = new THREE.Matrix4();
+    let index = 0;
+    for (let y = 0; y < PANELROWS; y++) {
+        for (let x = 0; x < PANELCOLS; x++) {
+
+            const px = (x - PANELCOLS / 2) * spacingX;
+            const py = 1.8;
+            const pz = (y - PANELROWS / 2) * spacingZ;
+
+            matrix.setPosition(px, py, pz);
+
+            this.#instancedPanel.setMatrixAt(index, matrix);
+
+            for (let i = 0; i < 5; i++) {
+              const xOffset = (i - (5 - 1) / 2) * 14/5;
+              matrix.setPosition(px + xOffset, 0.85, pz);
+              this.#instancedPost.setMatrixAt(index * 5 + i, matrix);
+            }
+
+            index++;
+        }
+    }
+
+    this.#rotateInstancedPanel(this.#instancedPanel, 40);
+    this.#instancedPost.instanceMatrix.needsUpdate = true;
+  }
+
+
+  #rotateInstancedPanel(instancedMesh, angle) {
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    const matrixArray = instancedMesh.instanceMatrix.array;
+
+    for (let i = 0; i < instancedMesh.count; i++) {
+
+      const offset = i * 16;
+
+      // X rotation components
+      matrixArray[offset + 5]  = c;
+      matrixArray[offset + 6]  = s;
+      matrixArray[offset + 9]  = -s;
+      matrixArray[offset + 10] = c;
+    }
+    instancedMesh.instanceMatrix.needsUpdate = true;
+  }
+
+
+  #setFaceUVs(geometry, bifacial = false) {
     const uv = geometry.attributes.uv;
     const index = geometry.index;
     geometry.groups.forEach((group, groupIndex) => {
@@ -345,7 +447,7 @@ export class Scene3D {
 
 
   #interpolateTowardsTargets() {
-    if (!this.#sunLight || !this.#sunSphere) return;
+    if (!this.#sunLight) return;
     const THREE = window.THREE;
     const t = this.#interpTargets;
 
@@ -364,19 +466,23 @@ export class Scene3D {
     const panelTilt = t.panelOrientationPrev.x;
     const panelAz   = t.panelOrientationPrev.y;
 
+    t.timeOfDayPrev = THREE.MathUtils.lerp(t.timeOfDayPrev, t.timeOfDay, 0.1);
+
     this.#modules.forEach(m => {
       m.children[0].rotation.set(0, 0, 0);
       m.rotation.set(0, 0, 0);
       // m.rotation.y = -(panelAz - 180) * DEG2RAD;
       m.children[0].rotation.x = (panelTilt - 90) * DEG2RAD;
     });
+    this.#rotateInstancedPanel(this.#instancedPanel, (panelTilt - 90) * DEG2RAD);
+
 
     const sunPos = slerpVec(t.sunPosPrev, t.sunPos, 0.1);
     t.sunPosPrev.copy(sunPos);
-    this.#sunSphere.position.copy(sunPos).multiplyScalar(5);
-    this.#sunLight.position.copy(sunPos).multiplyScalar(18);
+    // this.#sunSphere.position.copy(sunPos).multiplyScalar(5);
+    this.#sunLight.position.copy(sunPos).multiplyScalar(80);
 
-    this.#sunArrow.position.copy(this.#sunSphere.position);
+    // this.#sunArrow.position.copy(this.#sunSphere.position);
     setFromForwardUp(this.#sunArrow, sunPos.clone().negate(), new THREE.Vector3(0, 1, 0));
 
     const intensity = Math.max(0, sunPos.y);
@@ -391,12 +497,30 @@ export class Scene3D {
     //   ? nightCol.clone().lerp(dawnCol, Math.max(tSky / 0.2, 0))
     //   : dawnCol.clone().lerp(dayCol, Math.min((tSky - 0.2) / 0.5, 1));
     // if (this.#scene) { this.#scene.background = bgCol; this.#scene.fog.color = bgCol; }
-    this.#scene.fog.color = new THREE.Color(0x555555);
+    // this.#scene.fog.color = new THREE.Color(0x555555);
     this.#skybox.update(this.#sunLight);
+    this.#skybox.setRotationFromAxis(this.rotationAxis, t.timeOfDayPrev * Math.PI * 2);
     
     // const tSun = Math.max(0, Math.min(1, altDeg / 30));
     // this.#sunLight.color.copy(new THREE.Color(0xff8844).lerp(new THREE.Color(0xfff8e0), tSun));
     if (this.#sunSphere.material) this.#sunSphere.material.color.copy(this.#sunLight.color);
+  }
+
+  #setShadowCameraSize(shadowCameraSize) {
+    this.#sunLight.shadow.camera.left   = -shadowCameraSize;
+    this.#sunLight.shadow.camera.right  =  shadowCameraSize;
+    this.#sunLight.shadow.camera.top    =  shadowCameraSize;
+    this.#sunLight.shadow.camera.bottom = -shadowCameraSize;
+    this.#sunLight.shadow.camera.updateProjectionMatrix();
+  }
+
+  #updateNDCObject(anchorNDC, obj) {
+    const pos = obj.position;
+    pos.copy(anchorNDC);
+    // Convert NDC -> world
+    pos.unproject(this.#camera);
+    // compass.position.copy(temp);
+
   }
 
   // ── Public API ───────────────────────────────────────────────────────────
@@ -422,15 +546,48 @@ export class Scene3D {
       m.children[0].rotation.x = (tiltDeg - 90) * DEG2RAD;
     });
     this.#modulesGroup.rotation.y = -(azimuthDeg - 180) * DEG2RAD;
+    
+    this.#rotateInstancedPanel(this.#instancedPanel, (tiltDeg - 90) * DEG2RAD);
+
+    const az = -(azimuthDeg - 180) * DEG2RAD;
+    this.#instancedPanel.rotation.y = az;
+    this.#instancedPost.rotation.y = az;
+
   }
+
 
   updatePanelSpacing(spacing) {
     this.#modules.forEach((m, i) => {
       m.position.set(0, 0, spacing * (i - 5 / 2));
     });
+
+    const matrixArray = this.#instancedPanel.instanceMatrix.array;
+    const postMatrixArray = this.#instancedPost.instanceMatrix.array;
+    let panelMatrixOffset = 14;
+    let postMatrixOffset = 14;
+
+    for (let y = 0; y < PANELROWS; y++) {
+      const pz = (y - PANELROWS / 2) * PLANT.rowSpacing;
+
+      for (let x = 0; x < PANELCOLS; x++) {
+        // Z position component
+        matrixArray[panelMatrixOffset] = pz;
+        panelMatrixOffset += 16;
+
+        for (let i = 0; i < 5; i++) {
+          // postMatrixArray[(index * 5 + i) * 16 + 14] = pz;
+          postMatrixArray[postMatrixOffset] = pz;
+          postMatrixOffset += 16;
+        }
+        
+      }
+    }
+    this.#instancedPanel.instanceMatrix.needsUpdate = true;
+    this.#instancedPost.instanceMatrix.needsUpdate = true;
   }
 
-  updateSunPosition(altDeg, azDeg) {
+
+  updateSunPosition(altDeg, azDeg, tod) {
     this.#interpTargets.altDeg = altDeg;
     this.#interpTargets.azDeg  = azDeg;
     const alt = altDeg * DEG2RAD;
@@ -440,13 +597,16 @@ export class Scene3D {
        Math.sin(alt),                   // Up    → Three.js y
       -Math.cos(alt) * Math.cos(az)    // -North → Three.js z
     );
+    this.#interpTargets.timeOfDay = tod;
   }
+  
 
   dispose() {
     if (this.#animId) cancelAnimationFrame(this.#animId);
     if (this.#renderer) this.#renderer.dispose();
     this.#renderer = this.#scene = this.#camera = null;
   }
+
 
   static init(selector = "#canvas-3d") {
     const canvas = document.querySelector(selector);

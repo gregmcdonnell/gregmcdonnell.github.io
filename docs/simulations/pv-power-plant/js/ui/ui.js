@@ -92,8 +92,8 @@ function updateMetrics(totals, profile) {
 function updatePanelOrientationDisplay() {
   if (tracking && hourlyProfile?.[currentHour]) {
     const { panelTilt, panelAz } = hourlyProfile[currentHour];
-    setEl("rd-info-tilt", panelTilt.toFixed(0) + "°");
-    setEl("rd-info-az",   panelAz.toFixed(0) + "°  " + compassLabel(panelAz));
+    setEl("rd-info-tilt", (panelTilt * RAD2DEG).toFixed(0) + "°");
+    setEl("rd-info-az",   (panelAz * RAD2DEG).toFixed(0) + "°  " + compassLabel(panelAz * RAD2DEG));
   } else {
     setEl("rd-info-tilt", fixedTiltDeg + "°");
     setEl("rd-info-az",   fixedAzDeg + "°  " + compassLabel(fixedAzDeg));
@@ -162,8 +162,10 @@ function runUpdate() {
   if (waterfallChart)     updateWaterfallChart(waterfallChart, buildLossWaterfall(annualResult));
 
   const hrStats = hourlyProfile[currentHour];
-  scene3d?.updateSunPosition(hrStats.altDeg, hrStats.azDeg);
+  scene3d?.updateSunPosition(hrStats.altDeg, hrStats.azDeg, currentHour / 24);
   scene3d?.updatePanelOrientation(hrStats.panelTilt * RAD2DEG, hrStats.panelAz * RAD2DEG, true);
+  const lat = dataset.lat * DEG2RAD;
+  scene3d.rotationAxis = {x: 0, y: Math.sin(lat), z: -Math.cos(lat)};
   updatePanelOrientationDisplay();
   
 }
@@ -294,7 +296,7 @@ function onTimeOfDayChange() {
     updateMetrics(dailyTotals(hourlyProfile), hourlyProfile);
     const { panelTilt, panelAz, altDeg, azDeg, sunVec } = hourlyProfile[currentHour];
     
-    scene3d?.updateSunPosition(altDeg, azDeg);
+    scene3d?.updateSunPosition(altDeg, azDeg, currentHour / 24);
     if (tracking) {
       scene3d?.updatePanelOrientation(panelTilt * RAD2DEG, panelAz * RAD2DEG);
       updatePanelOrientationDisplay();

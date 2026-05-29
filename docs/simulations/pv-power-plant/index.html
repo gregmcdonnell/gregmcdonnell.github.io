@@ -11,6 +11,10 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/csm/CSM.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/csm/CSMHelper.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/csm/CSMShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/csm/Frustum.js"></script> -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
   <script src="https://unpkg.com/suncalc@1.9.0/suncalc.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
@@ -511,6 +515,48 @@
       padding: 8px;
       flex: 1;
       min-height: 0;
+      position: relative;
+    }
+
+    .main-panel-layout.maximized {
+      grid-template-columns: 0 100%;
+    }
+
+    /* #scene-panel.maximized {
+      width: 100%;
+    } */
+
+    #scene-panel.maximized .scene-wrap{
+      max-height: 650px;
+    }
+
+    .scene-wrap {
+      cursor: grab;
+    }
+
+    .scene-wrap:active {
+      cursor: grabbing;
+    }
+
+    .scene-maximize-btn {
+      margin-left: auto;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      color: var(--border);
+      cursor: pointer;
+      padding: 0px 4px;
+      font-size: 20px;
+      line-height: 1;
+      transition: color 0.15s, border-color 0.15s;
+      pointer-events: auto;
+      position: absolute;
+      top: 10px;
+      right: 10px;
+    }
+    .scene-maximize-btn:hover {
+      color: var(--text-pri);
+      border-color: var(--text-ter);
     }
 
     .inner-panel { display: flex; flex-direction: column; gap: 12px; min-height: 0; padding: 8px;}
@@ -577,6 +623,7 @@
       border: 1px solid var(--border);
       border-radius: var(--r-lg);
       padding: 12px 18px;
+      max-width: 400px;
     }
 
     .rd-time-row label { font-family: var(--font-mono); font-size: 9px; color: var(--text-ter); text-transform: uppercase; letter-spacing: .1em; white-space: nowrap; }
@@ -671,13 +718,20 @@
 
     .scene-overlay {
       position: absolute;
-      top: 8px; left: 10px;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+
       font-family: var(--font-mono);
       font-size: 10px;
       /* color: var(--text-ter); */
       color: #060b14;
       pointer-events: none;
       line-height: 1.6;
+    }
+
+    .overlay-info {
+      position: relative;
+      padding: 10px;
     }
 
     /* Status / error */
@@ -865,9 +919,9 @@
       <button class="tab-btn" data-tab="climate">Climate</button>
     </div>
 
-    <div class="main-panel-layout">
+    <div class="main-panel-layout" id="main-panel">
       <!-- Tab panels -->
-      <div class="tab-panels">
+      <div class="tab-panels" id="tab-panels">
 
         <!-- ── Real Data Panel ── -->
         <div class="tab-panel active" id="panel-realdata">
@@ -1038,14 +1092,15 @@
       </div><!-- /tab-panels -->
 
       <!-- RIGHT: 3D scene + hour snapshot -->
-      <div class="inner-panel">
+      <div class="inner-panel" id="scene-panel">
 
-        <!-- Time of day scrubber -->
-        <div class="rd-time-row">
-          <label>Time of day</label>
-          <input type="range" id="rd-hour" min="0" max="23" step="1" value="12" />
-          <span class="rd-time-val" id="rd-hour-val">12:00</span>
-          <!-- <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-ter)">→ updates sun position in 3D view</span> -->
+        <div>
+          <!-- Time of day scrubber -->
+          <div class="rd-time-row">
+            <label>Time of day</label>
+            <input type="range" id="rd-hour" min="0" max="23" step="1" value="12" />
+            <span class="rd-time-val" id="rd-hour-val">12:00</span>
+          </div>
         </div>
 
         <!-- Panel orientation info -->
@@ -1064,13 +1119,8 @@
         <div class="scene-wrap">
           <canvas id="canvas-3d"></canvas>
           <div class="scene-overlay">
-            <div>
-            <span class="rd-pi-label">Panel tilt:</span>
-            <span class="rd-pi-val" id="rd-info-tilt">25°</span>
-            </div>
-            <div>
-            <span class="rd-pi-label">Panel azimuth:</span>
-            <span class="rd-pi-val" id="rd-info-az">180° S</span>
+            <button class="scene-maximize-btn" id="scene-maximize-btn" title="Maximize scene" aria-label="Maximize scene">&#x2922;</button>
+            <div class="overlay-info">
             </div>
             <!-- SunCalc sun position<br>
             Faiman thermal model<br>
@@ -1083,6 +1133,10 @@
           <div class="rd-hour-title">Hour snapshot — <span id="rd-hour-val-echo" style="color:var(--accent4)">12:00</span></div>
           <div class="rd-hour-grid">
             <div>
+              <div class="rd-hour-row">
+                <span class="rd-hour-key">Panel tilt</span>
+                <span class="rd-hour-val" id="rd-info-tilt">25°</span>
+              </div>
               <div class="rd-hour-row">
                 <span class="rd-hour-key">GHI</span>
                 <span class="rd-hour-val" id="rd-kpi-hour-ghi">—</span>
@@ -1097,6 +1151,10 @@
               </div>
             </div>
             <div>
+              <div class="rd-hour-row">
+                <span class="rd-hour-key">Panel az</span>
+                <span class="rd-hour-val" id="rd-info-az">180° S</span>
+              </div>
               <div class="rd-hour-row">
                 <span class="rd-hour-key">Cell temp</span>
                 <span class="rd-hour-val" id="rd-kpi-hour-tcell" style="color:var(--accent3)">—</span>
@@ -1122,5 +1180,28 @@
   </main>
 </div><!-- /app -->
 <script type="module" src="./js/main.js"></script>
+<script>
+  (function () {
+    const btn = document.getElementById('scene-maximize-btn');
+    const panel = document.getElementById('scene-panel');
+    const mainPanel = document.getElementById('main-panel');
+    btn.addEventListener('click', () => {
+      const maximized = panel.classList.toggle('maximized');
+      mainPanel.classList.toggle('maximized');
+      btn.textContent = maximized ? '⤡' : '⤢';
+      btn.title = maximized ? 'Minimize scene' : 'Maximize scene';
+      btn.setAttribute('aria-label', btn.title);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && panel.classList.contains('maximized')) {
+        panel.classList.remove('maximized');
+        mainPanel.classList.remove('maximized');
+        btn.textContent = '⤢';
+        btn.title = 'Maximize scene';
+        btn.setAttribute('aria-label', 'Maximize scene');
+      }
+    });
+  })();
+</script>
 </body>
 </html>

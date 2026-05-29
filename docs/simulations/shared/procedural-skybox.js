@@ -95,6 +95,12 @@ export class ProceduralSkybox {
       c2*s1,  -s2,   c2*c1
     );
   }
+
+  setRotationFromAxis(axis, angle) {
+    const mat4 = new this.THREE.Matrix4();
+    mat4.makeRotationAxis(axis, angle);
+    this.skyboxMaterial.uniforms.skyRotationMatrix.value.setFromMatrix4(mat4);
+  }
 }
 
 const vertex = `
