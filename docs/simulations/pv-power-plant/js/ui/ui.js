@@ -2,10 +2,12 @@ import { LOCATIONS, MONTH_NAMES } from "../core/climate.js";
 import { PLANT, DERIVED } from "../core/plant.js";
 import { loadNSRDB, monthlyClimateSummary } from "../core/nsrdb.js";
 import { calculateAnnualFromNSRDB, buildLossWaterfall, yearSunTimes, processMonthForAverageDay, dailyTotals } from "../models/simulation.js";
-import { initDayHourlyChart, updateDayHourlyChart, setDayHourlyMarker } from "./chartDayHourly.js";
+import { initDayHourlyChart, updateDayHourlyChart, setDayHourlyMarker, changeYScaleMax } from "./chartDayHourly.js";
 import { initAnnualChart, updateAnnualChart, initAnnualSummaryChart, updateAnnualSummaryChart } from "./chartAnnualMonthly.js";
 import { initWaterfallChart, updateWaterfallChart } from "./chartWaterfall.js";
 import { initSunGraphChart, updateSunGraphChart, initClimateChart, updateClimateChart } from "./chartClimate.js";
+import { initEnergyYieldChart, updateEnergyYieldChart, initCashFlowChart, updateCashFlowChart } from "./chartFinancials.js";
+import { calculateFinancials } from "../models/financials.js";
 import { Scene3D } from "./scene3d.js";
 
 const DEG2RAD = Math.PI / 180;
@@ -21,9 +23,12 @@ let annualSummaryChart = null;
 let waterfallChart     = null;
 let sunGraphChart      = null;
 let climateChart       = null;
+let finEnergyChart     = null;
+let finCashFlowChart   = null;
 
 // Simulation state
-let dataset         = null;
+let dataset            = null;
+let lastAnnualAc_kWh   = 0;   // cached for financial re-runs without full sim
 let currentLocation = "phoenix";
 let currentMonth    = 5;   // 1-indexed
 let currentHour     = 12;
@@ -66,7 +71,26 @@ function updateKPIs(result) {
   setEl("kpi-lcoe",    "$ " + fmt(kpis.lcoe, 1)                + " /MWh");
   setEl("kpi-energy",  fmt(annual.totalAc_kWh / 1000, 0)       + " MWh/yr");
   setEl("kpi-revenue", "$ " + fmt(annual.revenue_usd / 1000, 0) + "k /yr");
-  console.log(fmt(annual.totalAc_kWh / 1000 / PLANT.rowSpacing, 0) + " MWh/yr/area")
+  // console.log(fmt(annual.totalAc_kWh / 1000 / PLANT.rowSpacing, 0) + " MWh/yr/area")
+}
+
+function updateFinancials() {
+  if (!lastAnnualAc_kWh) return;
+  const result = calculateFinancials(lastAnnualAc_kWh);
+  const { summary, capex, years } = result;
+
+  const fmtM = (v) => isNaN(v) ? "—" : `$${(v / 1e6).toFixed(2)}M`;
+  const fmtK = (v) => isNaN(v) ? "—" : `$${(v / 1e3).toFixed(0)}k`;
+
+  setEl("fin-npv",     fmtM(summary.npv));
+  setEl("fin-irr",     isNaN(summary.irr) ? "—" : `${(summary.irr * 100).toFixed(1)} %`);
+  setEl("fin-payback", summary.paybackYear ? `${summary.paybackYear} yr` : "N/A");
+  setEl("fin-capex",   fmtM(capex));
+  setEl("fin-revenue", fmtM(summary.totalRevenue_usd));
+  setEl("fin-energy",  `${(summary.totalEnergy_MWh / 1000).toFixed(1)} GWh`);
+
+  updateEnergyYieldChart(finEnergyChart, years);
+  updateCashFlowChart(finCashFlowChart, capex, years);
 }
 
 function updateMetrics(totals, profile) {
@@ -157,6 +181,9 @@ function runUpdate() {
   const annualResult = calculateAnnualFromNSRDB(dataset, fixedTiltDeg * DEG2RAD, fixedAzDeg * DEG2RAD, tracking, backtracking);
   updateKPIs(annualResult);
 
+  lastAnnualAc_kWh = annualResult.annual.totalAc_kWh;
+  updateFinancials();
+
   if (annualChart)        updateAnnualChart(annualChart, annualResult.monthly);
   if (annualSummaryChart) updateAnnualSummaryChart(annualSummaryChart, toDailyAverages(annualResult.monthly));
   if (waterfallChart)     updateWaterfallChart(waterfallChart, buildLossWaterfall(annualResult));
@@ -202,6 +229,57 @@ function populatePlantSpecs() {
   container.innerHTML = specs
     .map(([k, v]) => `<div class="spec-row"><span class="spec-key">${k}</span><span class="spec-val">${v}</span></div>`)
     .join("");
+}
+
+function updatePlantDesignDisplays() {
+  const acKw = PLANT.acCapacityKw;
+  const dcKwp = PLANT.dcCapacityKwp;
+
+  setEl("pd-ac-cap-display", `${(acKw / 1000).toLocaleString()} MW`);
+  setEl("pd-module-count-display", DERIVED.moduleCount.toLocaleString());
+  setEl("flow-pv-label", `${(dcKwp / 1000).toLocaleString()} MWp DC`);
+  setEl("flow-inv-label", `${(acKw / 1000).toLocaleString()} MW AC`);
+  populatePlantSpecs();
+}
+
+function buildPlantDesignControls() {
+  const dcCapSlider  = document.getElementById("pd-dc-cap");
+  const dcCapVal     = document.getElementById("pd-dc-cap-val");
+  const dcAcSlider   = document.getElementById("pd-dcac");
+  const dcAcVal      = document.getElementById("pd-dcac-val");
+  const moduleSel    = document.getElementById("pd-module-pmax");
+
+  function applyPlantChange() {
+    PLANT.acCapacityKw = PLANT.dcCapacityKwp / parseFloat(dcAcSlider.value);
+    updatePlantDesignDisplays();
+    changeYScaleMax(dayChart, Math.round(PLANT.acCapacityKw * (850/800) / 10) * 10);
+    runUpdate();
+  }
+
+  if (dcCapSlider) {
+    dcCapSlider.addEventListener("input", e => {
+      PLANT.dcCapacityKwp = +e.target.value;
+      if (dcCapVal) dcCapVal.textContent = `${(PLANT.dcCapacityKwp / 1000).toLocaleString()} MWp`;
+      applyPlantChange();
+    });
+  }
+
+  if (dcAcSlider) {
+    dcAcSlider.addEventListener("input", e => {
+      const ratio = parseFloat(e.target.value);
+      if (dcAcVal) dcAcVal.textContent = `${ratio.toFixed(2)}×`;
+      applyPlantChange();
+    });
+  }
+
+  if (moduleSel) {
+    moduleSel.addEventListener("change", e => {
+      PLANT.modulePmaxWp = +e.target.value;
+      updatePlantDesignDisplays();
+    });
+  }
+
+  updatePlantDesignDisplays();
 }
 
 // ─────────────────────────────────────────────────────
@@ -406,14 +484,34 @@ function initTabs() {
 }
 
 function initCharts() {
-
-  // Init charts once — they persist across location changes
   dayChart           = initDayHourlyChart("chart-realday");
   annualChart        = initAnnualChart("chart-annual");
   annualSummaryChart = initAnnualSummaryChart("chart-realday-annual");
   waterfallChart     = initWaterfallChart("chart-waterfall");
   sunGraphChart      = initSunGraphChart("chart-sun-graph");
   climateChart       = initClimateChart("chart-climate");
+  finEnergyChart     = initEnergyYieldChart("chart-fin-energy");
+  finCashFlowChart   = initCashFlowChart("chart-fin-cashflow");
+}
+
+function buildFinancialControls() {
+  const inputs = [
+    { id: "fin-price",       key: "electricityPriceUsdPerKwh", scale: 1       },
+    { id: "fin-escalation",  key: "priceEscalationRate",       scale: 0.01    },
+    { id: "fin-capex-input", key: "capitalCostUsdPerKwp",      scale: 1       },
+    { id: "fin-opex",        key: "opexUsdPerKwPerYear",        scale: 1       },
+    { id: "fin-degradation", key: "degradationRatePerYear",    scale: 0.01    },
+    { id: "fin-wacc",        key: "discountRate",               scale: 0.01    },
+  ];
+
+  inputs.forEach(({ id, key, scale }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("change", () => {
+      PLANT[key] = parseFloat(el.value) * scale;
+      updateFinancials();
+    });
+  });
 }
 
 function buildScene() {
@@ -430,6 +528,8 @@ export async function initUI() {
   initTabs();
   initCharts();
   buildControls();
+  buildPlantDesignControls();
+  buildFinancialControls();
   buildScene();
   await setLocation(currentLocation);
 }

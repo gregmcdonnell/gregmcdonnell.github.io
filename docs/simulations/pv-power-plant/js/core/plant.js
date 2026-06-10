@@ -59,11 +59,12 @@ export const PLANT = {
   discountRate: 0.06,           // 6% WACC
   projectLifeYears: 25,
   electricityPriceUsdPerKwh: 0.065, // $/kWh PPA or wholesale
+  priceEscalationRate: 0.02,    // 2%/yr electricity price escalation
 };
 
-/** Derived convenient values */
+/** Derived values — recompute live from PLANT so they stay correct after mutations. */
 export const DERIVED = {
-  dcAcRatio: PLANT.dcCapacityKwp / PLANT.acCapacityKw,
-  moduleCount: Math.round(PLANT.dcCapacityKwp * 1000 / PLANT.modulePmaxWp),
-  totalCapitalUsd: PLANT.capitalCostUsdPerKwp * PLANT.dcCapacityKwp,
+  get dcAcRatio()      { return PLANT.dcCapacityKwp / PLANT.acCapacityKw; },
+  get moduleCount()    { return Math.round(PLANT.dcCapacityKwp * 1000 / PLANT.modulePmaxWp); },
+  get totalCapitalUsd(){ return PLANT.capitalCostUsdPerKwp * PLANT.dcCapacityKwp; },
 };

@@ -53,15 +53,7 @@ function buildAnnualData(monthly) {
         borderWidth: 1,
         borderRadius: 3,
         type: "bar",
-      },
-      {
-        label: "AC energy",
-        data: monthly.map(m => parseFloat((m.energyAc_kWh / 1000).toFixed(1))),
-        backgroundColor: "rgba(74,222,128,0.75)",
-        borderColor: COLORS.ac,
-        borderWidth: 1,
-        borderRadius: 3,
-      },
+      }
     ],
   };
 }

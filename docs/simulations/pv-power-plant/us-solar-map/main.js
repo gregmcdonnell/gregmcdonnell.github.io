@@ -3,31 +3,21 @@ import { initHeatmap, updateHeatmap } from "./mapUS.js";
 
 
 const map = L.map('map', {
-    zoomSnap: 0,
-    zoomDelta: 0.1,
-    wheelPxPerZoomLevel: 10,
+    // zoomSnap: 0.5,
+    // zoomDelta: 0.1,
+    // wheelPxPerZoomLevel: 300,
 }).setView([40, -96], 5);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 11,
     attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 }).addTo(map);
-// L.tileLayer('https://tile.opentopomap.org/{z}/{x}/{y}.png', {
-//   attribution: '&copy; OpenStreetMap contributors'
+
+// L.latlngGraticule({
+//   showLabel: true,
+//   opacity: 0.5,
+//   weight: 1,
+//   color: '#333'
 // }).addTo(map);
-// L.graticule({
-//   interval: 10,        // degrees between lines
-//   style: {
-//     color: '#333',
-//     weight: 1,
-//     opacity: 0.5
-//   }
-// }).addTo(map);
-L.latlngGraticule({
-  showLabel: true,
-  opacity: 0.5,
-  weight: 1,
-  color: '#333'
-}).addTo(map);
 
 
 await initHeatmap(map);
@@ -98,68 +88,16 @@ function initMapInteraction() {
         zoom = map.getZoom() * 0.2;
         updateHeatmap(map, radiusEl.value * Math.sqrt(zoom), maxEl.value / zoom);
     }
+    
     function resetHeatmap() {
-        // zoom0 = zoom;
-        // panX0 = panX;
-        // panY0 = panY;
         // heatmapEl.style.transform = `translate(${0}px, ${0}px) scale(${1})`;
+        heatmapEl.style.visibility = "visible"
         scaledUpdate();
     }
 
-    wrapper.addEventListener("wheel", (e) => {
-        e.preventDefault();
-        const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-        const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * factor));
-
-        // Local content coord under cursor, held fixed across zoom
-        const lx = (e.clientX - origX - panX) / zoom;
-        const ly = (e.clientY - origY - panY) / zoom;
-
-        zoom = newZoom;
-        panX = e.clientX - origX - lx * zoom;
-        panY = e.clientY - origY - ly * zoom;
-
-        // applySVGTransform();
-        resetHeatmap();
-    }, { passive: false });
-
-    let dragging = false;
-    let dragStartX = 0;
-    let dragStartY = 0;
-    let panStartX = 0;
-    let panStartY = 0;
-
-    wrapper.addEventListener("mousedown", (e) => {
-        dragging = true;
-        dragStartX = e.clientX;
-        dragStartY = e.clientY;
-        panStartX = panX;
-        panStartY = panY;
-        wrapper.style.cursor = "grabbing";
-    });
 
     const throttledSlowUpdate = throttle(resetHeatmap, 400);
-    window.addEventListener("mousemove", (e) => {
-        if (!dragging) return;
-        panX = panStartX + (e.clientX - dragStartX);
-        panY = panStartY + (e.clientY - dragStartY);
-        // applySVGTransform();
-        applyHeatmapTranslation();
-        throttledSlowUpdate();
-    });
 
-    window.addEventListener("mouseup", () => {
-        if (!dragging) return;
-        dragging = false;
-        wrapper.style.cursor = "grab";
-        resetHeatmap();
-        // updateHeatmap(+scaleEl.value * zoom, +xEl.value, +yEl.value, radiusEl.value, maxEl.value, panX + (zoom - 1) * 500, panY + (zoom - 1) * 280);
-    });
-    // window.addEventListener("keyup", (e) => {
-    //     if (e.key == " ") {
-    //       resetTransform();
-    //     }
-    // });
 
     map.on('move', () => {
         const center = map.getCenter();
@@ -170,14 +108,18 @@ function initMapInteraction() {
     });
 
     map.on('moveend', () => {
-
-        // applyHeatmapTranslation();
         resetHeatmap();
     });
 
-    map.on('zoom', () => {
-        
+    map.on('zoomstart', () => {
+        heatmapEl.style.visibility = "hidden"
     });
+    
+    map.on('zoomend', () => {
+        // console.log(map.getZoom());
+        // heatmapEl.style.visibility = "visible"
+    });
+
 
 }
 

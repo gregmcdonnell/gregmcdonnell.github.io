@@ -778,6 +778,93 @@
       margin-left: auto;
       padding-left: 12px;
     }
+    /* ── Financials tab ───────────────────────────────────── */
+    .fin-kpi-strip {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      background: var(--bg1);
+      flex-shrink: 0;
+    }
+
+    .fin-kpi {
+      padding: 12px 16px;
+      border-right: 1px solid var(--border);
+    }
+    .fin-kpi:last-child { border-right: none; }
+
+    .fin-kpi-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      color: var(--text-ter);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .fin-kpi-value {
+      font-family: var(--font-mono);
+      font-size: 16px;
+      font-weight: 500;
+      line-height: 1;
+    }
+
+    .fin-inputs {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+      padding: 12px 16px;
+      background: var(--bg1);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      flex-shrink: 0;
+    }
+
+    .fin-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .fin-input-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      color: var(--text-ter);
+      text-transform: uppercase;
+    }
+
+    .fin-input-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .fin-input {
+      width: 100%;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      color: var(--accent2);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 5px 8px;
+      min-width: 0;
+    }
+    .fin-input:focus {
+      outline: none;
+      border-color: var(--accent2);
+    }
+
+    .fin-input-unit {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-ter);
+      white-space: nowrap;
+    }
+
     /* Scrollbar */
     /* ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -860,13 +947,55 @@
       </div>
     </div>
 
+    <!-- Plant design -->
+    <div class="sidebar-section">
+      <div class="section-label">Plant Design</div>
+      <div class="rd-controls">
+
+        <div class="rd-control-group">
+          <div class="rd-label"><span>DC capacity</span><span class="rd-value" id="pd-dc-cap-val">1,000 kWp</span></div>
+          <input type="range" class="rd-slider" id="pd-dc-cap" min="100" max="50000" step="100" value="1000" />
+        </div>
+
+        <div class="rd-control-group">
+          <div class="rd-label"><span>DC:AC ratio</span><span class="rd-value" id="pd-dcac-val">1.25×</span></div>
+          <input type="range" class="rd-slider" id="pd-dcac" min="1.0" max="1.6" step="0.05" value="1.25" />
+        </div>
+
+        <div class="rd-control-group">
+          <div class="rd-label"><span>Module Pmax</span></div>
+          <select class="rd-select" id="pd-module-pmax">
+            <option value="350">350 Wp</option>
+            <option value="400" selected>400 Wp</option>
+            <option value="450">450 Wp</option>
+            <option value="500">500 Wp</option>
+            <option value="550">550 Wp</option>
+            <option value="600">600 Wp</option>
+            <option value="700">700 Wp</option>
+          </select>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:2px;">
+          <div>
+            <div class="rd-label">AC capacity</div>
+            <div class="rd-value" id="pd-ac-cap-display" style="font-size:12px;padding-top:2px;">800 kW</div>
+          </div>
+          <div>
+            <div class="rd-label">Module count</div>
+            <div class="rd-value" id="pd-module-count-display" style="font-size:12px;padding-top:2px;">2,500</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
     <!-- Power flow diagram -->
     <div class="sidebar-section">
       <div class="section-label">Power Flow</div>
       <div class="flow-diagram">
-        <div class="flow-node node-pv">PV ARRAY<br><span style="font-size:9px;opacity:0.6">1,000 kWp DC</span></div>
+        <div class="flow-node node-pv">PV ARRAY<br><span style="font-size:9px;opacity:0.6" id="flow-pv-label">1,000 kWp DC</span></div>
         <div class="flow-blur"><div class="flow-line flow-gradient-1"></div></div>
-        <div class="flow-node node-inv">INVERTER<br><span style="font-size:9px;opacity:0.6">800 kW AC</span></div>
+        <div class="flow-node node-inv">INVERTER<br><span style="font-size:9px;opacity:0.6" id="flow-inv-label">800 kW AC</span></div>
         <div class="flow-blur"><div class="flow-line flow-gradient-2"></div></div>
         <div class="flow-node node-grid">GRID<br></div>
       </div>
@@ -916,6 +1045,7 @@
       <button class="tab-btn active" data-tab="realdata">Day View</button>
       <button class="tab-btn" data-tab="annual">Annual</button>
       <button class="tab-btn" data-tab="losses">Loss analysis</button>
+      <button class="tab-btn" data-tab="financials">Financials</button>
       <button class="tab-btn" data-tab="climate">Climate</button>
     </div>
 
@@ -980,7 +1110,7 @@
         <div class="tab-panel" id="panel-annual">
           <div class="inner-panel">
             <div class="chart-wrap">
-              <div class="chart-title">Monthly AC energy output vs GHI input (MWh)</div>
+              <div class="chart-title">Monthly GHI and POA input (MWh)</div>
               <div class="chart-canvas-wrap">
                 <canvas id="chart-annual"></canvas>
               </div>
@@ -1068,6 +1198,102 @@
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Financials -->
+        <div class="tab-panel" id="panel-financials">
+          <div class="inner-panel">
+
+            <!-- KPI strip -->
+            <div class="fin-kpi-strip">
+              <div class="fin-kpi">
+                <div class="fin-kpi-label">NPV</div>
+                <div class="fin-kpi-value" id="fin-npv" style="color:var(--accent)">—</div>
+              </div>
+              <div class="fin-kpi">
+                <div class="fin-kpi-label">IRR</div>
+                <div class="fin-kpi-value" id="fin-irr" style="color:var(--accent)">—</div>
+              </div>
+              <div class="fin-kpi">
+                <div class="fin-kpi-label">Simple payback</div>
+                <div class="fin-kpi-value" id="fin-payback" style="color:var(--accent2)">—</div>
+              </div>
+              <div class="fin-kpi">
+                <div class="fin-kpi-label">Total CapEx</div>
+                <div class="fin-kpi-value" id="fin-capex" style="color:var(--text-pri)">—</div>
+              </div>
+              <div class="fin-kpi">
+                <div class="fin-kpi-label">25yr Revenue</div>
+                <div class="fin-kpi-value" id="fin-revenue" style="color:var(--text-pri)">—</div>
+              </div>
+              <div class="fin-kpi">
+                <div class="fin-kpi-label">25yr Energy</div>
+                <div class="fin-kpi-value" id="fin-energy" style="color:var(--accent4)">—</div>
+              </div>
+            </div>
+
+            <!-- Financial inputs -->
+            <div class="fin-inputs">
+              <div class="fin-input-group">
+                <label class="fin-input-label" for="fin-price">Electricity price</label>
+                <div class="fin-input-row">
+                  <input type="number" class="fin-input" id="fin-price" value="0.065" min="0.01" max="0.50" step="0.005" />
+                  <span class="fin-input-unit">$/kWh</span>
+                </div>
+              </div>
+              <div class="fin-input-group">
+                <label class="fin-input-label" for="fin-escalation">Price escalation</label>
+                <div class="fin-input-row">
+                  <input type="number" class="fin-input" id="fin-escalation" value="2.0" min="0" max="10" step="0.1" />
+                  <span class="fin-input-unit">%/yr</span>
+                </div>
+              </div>
+              <div class="fin-input-group">
+                <label class="fin-input-label" for="fin-capex-input">CapEx</label>
+                <div class="fin-input-row">
+                  <input type="number" class="fin-input" id="fin-capex-input" value="900" min="200" max="3000" step="10" />
+                  <span class="fin-input-unit">$/kWp</span>
+                </div>
+              </div>
+              <div class="fin-input-group">
+                <label class="fin-input-label" for="fin-opex">OpEx</label>
+                <div class="fin-input-row">
+                  <input type="number" class="fin-input" id="fin-opex" value="15" min="1" max="100" step="1" />
+                  <span class="fin-input-unit">$/kW/yr</span>
+                </div>
+              </div>
+              <div class="fin-input-group">
+                <label class="fin-input-label" for="fin-degradation">Degradation</label>
+                <div class="fin-input-row">
+                  <input type="number" class="fin-input" id="fin-degradation" value="0.5" min="0.1" max="2.0" step="0.1" />
+                  <span class="fin-input-unit">%/yr</span>
+                </div>
+              </div>
+              <div class="fin-input-group">
+                <label class="fin-input-label" for="fin-wacc">Discount rate</label>
+                <div class="fin-input-row">
+                  <input type="number" class="fin-input" id="fin-wacc" value="6.0" min="0.5" max="25" step="0.5" />
+                  <span class="fin-input-unit">% WACC</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="chart-wrap" style="flex:none;">
+              <div class="chart-title">Annual AC energy yield — 25-year horizon with degradation</div>
+              <div class="chart-canvas-wrap">
+                <canvas id="chart-fin-energy"></canvas>
+              </div>
+            </div>
+
+            <div class="chart-wrap" style="flex:none;">
+              <div class="chart-title">Cumulative cash flow — project lifetime</div>
+              <div class="chart-canvas-wrap">
+                <canvas id="chart-fin-cashflow"></canvas>
+              </div>
+            </div>
+
           </div>
         </div>
 

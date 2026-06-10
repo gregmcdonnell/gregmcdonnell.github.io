@@ -100,6 +100,10 @@ export function setDayHourlyMarker(chart, hour) {
   chart.update("none");
 }
 
+export function changeYScaleMax(chart, max) {
+  chart.options.scales.yPower.max = max;
+}
+
 function buildDatasets(profile) {
   const get = (key, sub) => profile.map(h => {
     const v = sub ? h[key]?.[sub] : h[key];
@@ -126,7 +130,7 @@ function buildDatasets(profile) {
       segment: {
         borderColor: ctx => {
           const { p0, p1 } = ctx;
-          return (p0.parsed.y >= PLANT.acCapacityKw && p1.parsed.y >= PLANT.acCapacityKw) ? "red" : COLORS.acMean;
+          return (Math.ceil(p0.parsed.y) >= PLANT.acCapacityKw && Math.ceil(p1.parsed.y) >= PLANT.acCapacityKw) ? "red" : COLORS.acMean;
         },
       },
       backgroundColor: COLORS.acBand,
