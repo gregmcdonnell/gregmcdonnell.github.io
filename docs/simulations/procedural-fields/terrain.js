@@ -22,8 +22,8 @@ export class Terrain {
         this.meshPool = [];
         this.generateBaseGeometries();
         this.generateChunkOffsets();
-        this.material = new THREE.MeshStandardMaterial({ color: 'hsl(88, 78.90%, 18.60%)', roughness: 0.3, metalness: 0, wireframe: false});
-        this.otherMaterial = new THREE.MeshStandardMaterial({ color: 'hsl(246, 100.00%, 50.00%)', roughness: 0.3, metalness: 0, wireframe: true});
+        this.material = new THREE.MeshStandardMaterial({ color: 'hsl(88, 78.90%, 18.60%)', roughness: 0.7, metalness: 0, wireframe: false});
+        this.otherMaterial = new THREE.MeshStandardMaterial({ color: 'hsl(246, 100.00%, 50.00%)', roughness: 0.7, metalness: 0, wireframe: true});
         this.computeNormals = false;
         this.terrainScale = .01;
         this.noiseScales = [.5, .1];

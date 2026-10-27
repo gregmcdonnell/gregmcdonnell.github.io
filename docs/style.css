@@ -13,26 +13,75 @@
 }
 
 :root {
+  /* Light theme (default) */
   --bg: #ffffff;
   --surface: #f7f7f5;
   --border: #e4e4e0;
   --border-light: #efefec;
+
   --text-primary: #141413;
   --text-secondary: #44433f;
   --text-muted: #78776f;
+
   --accent: #1a4a8a;
   --accent-hover: #133a6e;
   --accent-light: #edf2fa;
+
   --tag-bg: #efefec;
   --tag-text: #44433f;
 
   --card-glow: #eef0f2;
 
+  /* Never change */
   --mono: 'DM Mono', monospace;
   --sans: 'DM Sans', sans-serif;
 
   --max-w: 1000px;
   --page-px: 1.5rem;
+}
+
+/* System preference */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121212;
+    --surface: #1b1b1a;
+    --border: #353533;
+    --border-light: #464643;
+
+    --text-primary: #f4f4f1;
+    --text-secondary: #d1d1cb;
+    --text-muted: #9a9a94;
+
+    --accent: #6ca8ff;
+    --accent-hover: #90bdff;
+    --accent-light: #1c2e49;
+
+    --tag-bg: #2b2b29;
+    --tag-text: #d1d1cb;
+
+    --card-glow: #22252a;
+  }
+}
+
+/* Manual dark override */
+:root[data-theme="dark"] {
+  --bg: #121212;
+  --surface: #1b1b1a;
+  --border: #353533;
+  --border-light: #464643;
+
+  --text-primary: #f4f4f1;
+  --text-secondary: #d1d1cb;
+  --text-muted: #9a9a94;
+
+  --accent: #6ca8ff;
+  --accent-hover: #90bdff;
+  --accent-light: #1c2e49;
+
+  --tag-bg: #2b2b29;
+  --tag-text: #d1d1cb;
+
+  --card-glow: #22252a;
 }
 
 html {
@@ -386,11 +435,37 @@ figure figcaption {
    ============================================================ */
 
 .hero {
+  position: relative;
   width: 100%;
   max-width: var(--max-w);
   padding: 4.5rem 0 3.5rem;
   border-bottom: 1px solid var(--border);
   animation: fadeUp 0.5s 0.05s ease both;
+  /* overflow: hidden; */
+}
+
+.hero canvas {
+  position: absolute;
+
+  inset: 0;          /* top/right/bottom/left: 0 */
+  /* width: 100%; */
+  height: 100%;
+  z-index: -2;
+  --my-grad: 
+    linear-gradient(
+      to bottom,
+      black 0%,
+      rgba(0,0,0,.35) 25%,
+      rgba(0,0,0,.15) 50%,
+      transparent 100% );
+  -webkit-mask-image: var(--my-grad);
+  mask-image: var(--my-grad);
+
+  width: 100vw;
+  left: 50%;
+  transform: translateX(-50%); 
+
+  /* display: block; */
 }
 
 .hero-label {
@@ -515,7 +590,6 @@ figure figcaption {
   background: var(--border);
   border: 1px solid var(--border);
   border-radius: 3px;
-  overflow: hidden;
   margin-top: 3rem;
   animation: fadeUp 0.5s 0.3s ease both;
 }
@@ -525,7 +599,7 @@ figure figcaption {
   padding: 1.6rem 1.5rem;
   text-decoration: none;
   color: inherit;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, box-shadow 0.2s ease, transform 0.2s ease;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
@@ -533,7 +607,8 @@ figure figcaption {
   overflow: hidden;
 }
 
-.nav-tile::before {
+.nav-tile::before, 
+.project-card::before {
   content: '';
   position: absolute;
   left: 0;
@@ -545,14 +620,19 @@ figure figcaption {
   transform-origin: bottom;
   transition: transform 0.2s ease;
 }
+.nav-tile:hover::before,
+.project-card:hover::before {
+  transform: scaleY(1);
+}
 
 .nav-tile:hover {
   background: var(--surface);
+  /* box-shadow: var(--shadow-md); */
+  box-shadow: 0 6px 20px 0px rgba(20, 20, 19, 0.20), 0 2px 6px rgba(20, 20, 19, 0.05);
+  transform: translateY(-3px);
+  z-index: 1;
 }
 
-.nav-tile:hover::before {
-  transform: scaleY(1);
-}
 
 .nav-tile-label {
   font-family: var(--mono);

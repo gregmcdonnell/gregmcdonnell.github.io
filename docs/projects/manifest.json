@@ -30,21 +30,6 @@
     "slug": "coupled-pendulums"
   },
   {
-    "title": "Cloth Simulation",
-    "date": "2024-05",
-    "description": "Simulating cloth with a grid of particles connected by springs.",
-    "tags": [
-      "simulation",
-      "physics",
-      "cloth",
-      "fluid",
-      "soft-body"
-    ],
-    "image": "/assets/images/cloth-1.png",
-    "url": "/projects/cloth-sim",
-    "slug": "cloth-sim"
-  },
-  {
     "title": "GPU Particle Collisions",
     "date": "2024-04",
     "description": "A real time simulation of massive numbers of 2D and 3D particles with full collisions executed with GPU compute shaders.",

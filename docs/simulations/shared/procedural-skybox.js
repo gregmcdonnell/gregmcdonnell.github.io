@@ -38,14 +38,14 @@ export class ProceduralSkybox {
   }
 
   update(sunLight) {
-    const sunPos = sunLight.position.clone().normalize();
+    const sunPos = sunLight.position.clone().sub(sunLight.target.position).normalize();
     const polar = Math.acos(sunPos.y);
     const azimuthal = Math.atan2(sunPos.x, sunPos.z);
 
     const aboveHorizon = Math.max(0, Math.min(sunPos.y * 5, 1));
     sunLight.intensity = aboveHorizon * 2;
     const sunColor = this.skyboxMaterial.uniforms.sunColor.value;
-    sunLight.color.lerpColors(new THREE.Color(sunColor[0], sunColor[1], sunColor[2]), new THREE.Color(1, 1, 1), aboveHorizon);
+    sunLight.color.lerpColors(new this.THREE.Color(sunColor[0], sunColor[1], sunColor[2]), new this.THREE.Color(1, 1, 1), aboveHorizon);
     
     this.skyboxMaterial.uniforms.uSunDirection.value = sunPos;
     this.setRotationMatrix(polar, azimuthal);

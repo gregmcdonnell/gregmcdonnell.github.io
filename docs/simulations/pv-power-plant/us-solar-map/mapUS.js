@@ -22,7 +22,7 @@ export async function initHeatmap(map) {
         radius: 3
     });
 
-    csvData.raw = await getCSVData("/simulations/pv-power-plant/data/uspvdb_v4_0_20260414_lite.csv", map);
+    csvData.raw = await getCSVData("uspvdb_v4_0_20260414_lite.csv", map);
 
     const scale = 1 / (10000);
     csvData.scale = scale;

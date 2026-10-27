@@ -25,7 +25,9 @@
 
     <!-- Hero / About -->
   <div class="hero">
-    <p class="hero-label">Engineering · Physics · Computational Methods</p>
+
+    <canvas id="canvas"></canvas>
+    <p class="hero-label">Engineering · Physics · Computation</p>
     <h1>Welcome!</h1>
     <div class="hero-container">
       <p class="hero-bio">
@@ -82,6 +84,7 @@
 
   <div class="spacer" style="height: 3rem;"></div>
 
+  <script src="background-anim.js"></script>
   <script>
     async function loadFeatured() {
       const list = document.getElementById('featured-list');

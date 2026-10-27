@@ -1,11 +1,12 @@
 
 import * as THREE from 'three';
-import * as CANNON from 'cannon-es';
+// import * as CANNON from 'cannon-es';
 
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.20/+esm';
 import { Terrain } from './terrain.js';
-import { ProceduralSkybox } from './procedural-skybox.js';
+// import { ProceduralSkybox } from './procedural-skybox.js';
+import { ProceduralSkybox } from '../shared/procedural-skybox.js';
 import Stats from 'https://cdnjs.cloudflare.com/ajax/libs/stats.js/r17/Stats.min.js';
 
 const infoDiv = document.getElementById('info');
@@ -47,6 +48,7 @@ async function loadShader(url) {
     camera.position.set(0, 6, -10);
     camera.lookAt(0, 0, 0);
     const controls = new OrbitControls(camera, renderer.domElement);
+    const lastTargetPosition = new THREE.Vector3();
     controls.update();
     let isUserOrbiting = false;
     controls.addEventListener('start', () => {
@@ -74,7 +76,7 @@ async function loadShader(url) {
         lightPhi: Math.PI / 6,
         lightPhiSmooth: Math.PI / 6,
         cameraOnTerrain: true,
-        cameraSpeed: 2
+        cameraSpeed: 0.3
     }
     directionalLight.position.setFromSpherical(new THREE.Spherical(1, params.lightPhiSmooth, params.lightThetaSmooth));
     gui.add(params, 'lightTheta', 0, Math.PI * 2).onChange(function(value) {
@@ -88,10 +90,10 @@ async function loadShader(url) {
     gui.add(params, 'cameraOnTerrain');
     gui.add(params, 'cameraSpeed');
 
-    const skybox = new ProceduralSkybox();
+    const skybox = new ProceduralSkybox(THREE);
     skybox.addToScene(scene, camera);
     skybox.updateSkyboxTexture(renderer);
-    skybox.addControlsToGUI(gui);
+    // skybox.addControlsToGUI(gui);
     
     const chunkSize = 400;
     const terrain = new Terrain(camera, scene, chunkSize);
@@ -115,10 +117,11 @@ async function loadShader(url) {
     // gui.add(terrain, 'textureScale', 1, 100);
     gui.add(terrain, 'detailFactor', 1, 100);
 
-    const testSphere = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 32), terrain.material);
+    const testSphere = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 32), new THREE.MeshStandardMaterial({ color: 'hsl(0, 0%, 43%)', roughness: 0.4, metalness: 0}));
     testSphere.castShadow = true;
     testSphere.receiveShadow = true;
     testSphere.position.set(0, terrain.calculateHeightRaw(0, 0) + 1, 0);
+    testSphere.vy = 0;
     scene.add(testSphere);
     // addAxesIndicator();
     
@@ -311,15 +314,15 @@ async function loadShader(url) {
     const offsets = new Float32Array(instanceCount * 2); // x, y, z per instance
     const normalOffsets = new Float32Array(instanceCount * 2); // x, y, z per instance
     
-    grassInstancedGeometry.setAttribute('instanceOffset', new THREE.InstancedBufferAttribute(offsets, 3));
-    grassInstancedGeometry.setAttribute('instanceNormalOffset', new THREE.InstancedBufferAttribute(normalOffsets, 3));
+    grassInstancedGeometry.setAttribute('instanceOffset', new THREE.InstancedBufferAttribute(offsets, 2));
+    grassInstancedGeometry.setAttribute('instanceNormalOffset', new THREE.InstancedBufferAttribute(normalOffsets, 2));
     grassInstancedGeometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), chunkSize / 2 * 1.5);
     params.grassRadius = 50;
     updateGrass();
     // console.log(grassInstancedGeometry);
     const grassInstancedMesh = new THREE.Mesh(grassInstancedGeometry, customGrassMaterial);
     grassInstancedMesh.frustumCulled = false;
-    // grassInstancedMesh.castShadow = true;
+    grassInstancedMesh.castShadow = true;
     grassInstancedMesh.receiveShadow = true;
     scene.add(grassInstancedMesh);
 
@@ -379,22 +382,27 @@ async function loadShader(url) {
         if (params.cameraOnTerrain) {
             keepCameraAboveTerrain();
         }
+        lastTargetPosition.copy(controls.target);
         terrain.targetPoint.copy(controls.target);
         terrain.update();
 
         params.lightThetaSmooth = THREE.MathUtils.lerp(params.lightThetaSmooth, params.lightTheta, 0.1);
         params.lightPhiSmooth = THREE.MathUtils.lerp(params.lightPhiSmooth, params.lightPhi, 0.1);
-        directionalLight.position.setFromSpherical(new THREE.Spherical(1, params.lightPhiSmooth, params.lightThetaSmooth));
+        if (Math.abs(params.lightPhiSmooth - params.lightPhi) > 0.01) {
+            skybox.updateSkyboxTexture(renderer);
+            console.log("updating skybox texture");
+        }
+        directionalLight.position.setFromSpherical(new THREE.Spherical(10, params.lightPhiSmooth, params.lightThetaSmooth));
+        directionalLight.position.add(controls.target);
+        directionalLight.target.position.copy(controls.target);
+        directionalLight.target.updateMatrixWorld();
         
-        const aboveHorizon = Math.max(0, Math.min(directionalLight.position.y * 5, 1));
-        directionalLight.intensity = aboveHorizon * 2;
-        const sunColor = skybox.skyboxMaterial.uniforms.sunColor.value;
-        directionalLight.color.lerpColors(new THREE.Color(sunColor[0], sunColor[1], sunColor[2]), new THREE.Color(1, 1, 1), aboveHorizon);
         
-        skybox.update(renderer, delta, time, directionalLight.position, params.lightPhiSmooth, params.lightThetaSmooth);
+        skybox.update(directionalLight);
         renderer.render(scene, camera);
         stats.end();
     }
+    moveToHillTop();
     animate();
 
     function createGrassGeometry() {
@@ -443,11 +451,15 @@ async function loadShader(url) {
         const terrainHeightAtCamera = .1 + terrain.calculateHeightScaled(camera.position.x, camera.position.z);
         const terrainHeightAtTarget = .5 + terrain.calculateHeightScaled(controls.target.x, controls.target.z);
         const targetHeightDifference = terrainHeightAtTarget - controls.target.y;
-        controls.target.y = terrainHeightAtTarget;
-        camera.position.y += targetHeightDifference;
+        if (controls.target.y < terrainHeightAtTarget) {
+            controls.target.y += targetHeightDifference;
+            camera.position.y += targetHeightDifference;
+            testSphere.vy = Math.max(0, testSphere.vy);
+        }
         if (camera.position.y < terrainHeightAtCamera) {
             camera.position.y = terrainHeightAtCamera;
         }
+        testSphere.position.copy(controls.target)
     }
 
     function moveOrbiter(speed) {
@@ -457,7 +469,9 @@ async function loadShader(url) {
         camera.getWorldDirection(forward);
         const up = new THREE.Vector3(0, 1, 0);
         const right = forward.clone().cross(up).normalize();
-        up.crossVectors(right, forward).normalize();
+        forward.y = 0;
+        forward.normalize();
+        // up.crossVectors(right, forward).normalize();
         // up.normalize();
         if (keysPressed.has('shift')) {
             speed *= 5;
@@ -480,10 +494,36 @@ async function loadShader(url) {
         if (keysPressed.has('e')) {
             target.add(up);
         }
+        if (keysPressed.has(' ')) {
+            testSphere.vy = .4;
+        }
+        controls.target.y += testSphere.vy;
+        camera.position.y += testSphere.vy;
+        testSphere.vy += -.01;
         target.multiplyScalar(speed);
         controls.target.add(target);
         camera.position.add(target);
         controls.update();
+    }
+
+    function moveToHillTop() {
+        const target = controls.target;
+        const slope = new THREE.Vector3();
+        const ds = 5;
+        for (let i = 0; i < 100; i++) {
+            
+            const h0 = terrain.calculateHeightScaled(target.x, target.z);
+            const hx = terrain.calculateHeightScaled(target.x + ds, target.z);
+            const hz = terrain.calculateHeightScaled(target.x, target.z + ds);
+            // currentTarget.x += hx - h0;
+            // currentTarget.z += hz - h0;
+            slope.set(hx - h0, 0, hz - h0);
+            target.add(slope);
+            camera.position.add(slope);
+        }
+        
+        // controls.target.copy(currentTarget);
+        // camera.position.add(currentTarget);
     }
 
     function addAxesIndicator() {
