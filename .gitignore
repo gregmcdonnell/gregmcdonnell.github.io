@@ -1,5 +1,5 @@
 # Ignore node_modules (dependencies)
 node_modules/
-docs/ignore/
-docs/simulations/pv-power-plant/nsrdb_fetch.py
+archive/docs/ignore/
+archive/docs/simulations/pv-power-plant/nsrdb_fetch.py
 .DS_Store
