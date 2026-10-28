@@ -4,8 +4,8 @@ import Base from '../../layouts/Base.astro';
 import ProjectCard from '../../components/ProjectCard.astro';
 import TagFilter from '../../components/TagFilter.astro';
 
-// Newest first.
-const projects = (await getCollection('projects')).sort(
+// Newest first, without drafts.
+const projects = (await getCollection('projects', ({ data }) => !data.draft)).sort(
 	(a, b) => b.data.date.getTime() - a.data.date.getTime(),
 );
 const tags = [...new Set(projects.flatMap((p) => p.data.tags))].sort();

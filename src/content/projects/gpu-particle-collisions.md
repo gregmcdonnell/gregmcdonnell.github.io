@@ -2,7 +2,7 @@
 title: GPU Particle Collisions
 date: 2024-04
 description: A real time simulation of massive numbers of 2D and 3D particles with full collisions executed with GPU compute shaders.
-tags: [simulation, physics, particles, fluid, collision, gpu, graphics, unity]
+tags: [physics, particles, GPU]
 featured: true
 image: /assets/images/gpu-particle-collisions/gpu-particles-1.png
 ---

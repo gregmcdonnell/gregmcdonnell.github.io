@@ -1,7 +1,7 @@
 ---
 title: Solar System Simulation
 date: 2026-02
-tags: [simulation, physics, orbits, space, gravity]
+tags: [physics, solar, orbits, gravity]
 image: /assets/images/solar-system/solar-system-orbits.png
 ---
 

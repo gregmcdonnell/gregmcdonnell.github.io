@@ -4,6 +4,7 @@ date: 2026-05
 description: A look into the modeling and physics of utility-scale solar power plants.
 tags: [simulation, solar, power, photovoltaic]
 simulation: pv-power-plant
+draft: true
 ---
 
 # Building a Utility-Scale PV Power Plant Simulator

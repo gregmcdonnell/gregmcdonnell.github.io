@@ -15,6 +15,7 @@ const projects = defineCollection({
 		image: z.string().optional(),
 		// Slug of a folder in public/simulations/, adds the "Open Interactive Simulation" button.
 		simulation: z.string().optional(),
+		draft: z.boolean().default(false),
 		// Shown in the "Featured" list on the home page.
 		featured: z.boolean().default(false),
 	}),

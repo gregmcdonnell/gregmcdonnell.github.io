@@ -2,7 +2,7 @@
 title: Coupled Pendulums
 date: 2025-06
 description: A quick javascript simulation of a line of pendulums coupled with angular springs.
-tags: [simulation, physics, pendulums, spring]
+tags: [physics, pendulums, spring]
 featured: true
 image: /assets/images/coupled-pendulums/coupled-pend-1.png
 simulation: coupled-pendulums

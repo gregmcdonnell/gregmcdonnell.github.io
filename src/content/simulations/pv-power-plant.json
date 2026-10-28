@@ -2,12 +2,7 @@
   "title": "Solar Plant Simulation",
   "date": "2026-05",
   "description": "Simulating a photovoltaic solar array power plant.",
-  "tags": [
-    "simulation",
-    "solar",
-    "power",
-    "photovoltaic"
-  ],
+  "tags": ["solar", "power", "photovoltaic"],
   "project": "pv-power-plant",
   "featured": true
 }

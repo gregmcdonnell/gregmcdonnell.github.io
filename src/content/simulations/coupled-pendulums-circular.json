@@ -2,7 +2,7 @@
   "title": "Coupled Pendulums - Circular",
   "date": "2025-06",
   "description": "Coupled pendulums arranged in a closed loop.",
-  "tags": ["simulation", "physics", "pendulums", "spring"],
+  "tags": ["physics", "pendulums", "spring"],
   "path": "coupled-pendulums/circular",
   "project": "coupled-pendulums"
 }

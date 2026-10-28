@@ -1,5 +1,6 @@
 {
   "title": "Simple Cloth",
   "date": "2025",
-  "description": "A simple cloth physics sim to help learn three js."
+  "description": "A simple cloth physics sim to help learn three js.",
+  "tags": ["particles", "physics", "spring"]
 }
