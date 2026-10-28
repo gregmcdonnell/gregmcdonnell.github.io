@@ -1,0 +1,98 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import ProjectCard from '../components/ProjectCard.astro';
+import SimCard from '../components/SimCard.astro';
+
+const tiles = [
+	{
+		href: '/projects',
+		label: 'Browse',
+		title: 'All Projects',
+		desc: 'Archive of projects and articles, filterable by topic.',
+	},
+	{
+		href: '/simulations',
+		label: 'Browse',
+		title: 'Simulations',
+		desc: "A catalogue of interactive simulations I've created.",
+	},
+	{
+		href: '/gallery',
+		label: 'Browse',
+		title: 'Gallery',
+		desc: 'Visualizations, plots, and renders from projects.',
+	},
+	{
+		href: '/notes',
+		label: 'Read',
+		title: 'Notes & Exploration',
+		desc: 'Writeups on interesting techniques, math, and ideas outside of specific projects.',
+	},
+];
+
+// Featured projects and simulations are mixed into one list, newest first.
+const featured = [
+	...(await getCollection('projects', ({ data }) => data.featured)).map((entry) => ({
+		kind: 'project' as const,
+		entry,
+	})),
+	...(await getCollection('simulations', ({ data }) => data.featured && !data.draft)).map(
+		(entry) => ({ kind: 'sim' as const, entry }),
+	),
+].sort((a, b) => b.entry.data.date.getTime() - a.entry.data.date.getTime());
+---
+
+<Base title="Greg McDonnell — Physics & Engineering">
+	<div class="hero">
+		<canvas id="canvas"></canvas>
+		<p class="hero-label">Engineering · Physics · Computation</p>
+		<h1>Welcome!</h1>
+		<div class="hero-container">
+			<p class="hero-bio">
+				My name is Greg McDonnell. I created this site as a compilation of fun and interesting
+				projects I've worked on. Here you'll find simulations and deep dives into the physics and
+				engineering of our world. Thanks for visiting, I hope you find something that interests or
+				inspires you, or maybe just something that makes you glad to have stopped by.
+			</p>
+		</div>
+		<p>Site is in early development. Much more to come soon!</p>
+	</div>
+
+	<div class="section">
+		<div class="section-header">
+			<span class="section-title">Featured</span>
+			<a class="section-link" href="/projects">All projects →</a>
+		</div>
+		<div class="project-list">
+			{
+				featured.map((item, i) =>
+					item.kind === 'project' ? (
+						<ProjectCard project={item.entry} index={i} />
+					) : (
+						<SimCard sim={item.entry} index={i} />
+					),
+				)
+			}
+			{featured.length === 0 && <p class="loading-msg">No featured items yet.</p>}
+		</div>
+	</div>
+
+	<div class="nav-tiles">
+		{
+			tiles.map(({ href, label, title, desc }) => (
+				<a class="nav-tile" href={href}>
+					<span class="nav-tile-label">{label}</span>
+					<span class="nav-tile-title">{title}</span>
+					<span class="nav-tile-desc">{desc}</span>
+				</a>
+			))
+		}
+	</div>
+
+	<div style="height: 3rem;"></div>
+</Base>
+
+<script>
+	import '../scripts/background-anim.js';
+</script>

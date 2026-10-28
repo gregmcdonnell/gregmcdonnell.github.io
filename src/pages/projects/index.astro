@@ -1,0 +1,30 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import ProjectCard from '../../components/ProjectCard.astro';
+import TagFilter from '../../components/TagFilter.astro';
+
+// Newest first.
+const projects = (await getCollection('projects')).sort(
+	(a, b) => b.data.date.getTime() - a.data.date.getTime(),
+);
+const tags = [...new Set(projects.flatMap((p) => p.data.tags))].sort();
+---
+
+<Base title="Projects — Greg McDonnell">
+	<div class="page-header">
+		<p class="page-label">Archive</p>
+		<h1>Projects</h1>
+		<p>
+			Engineering analysis, simulation studies, and technical builds.
+		</p>
+	</div>
+
+	<main>
+		<TagFilter tags={tags} />
+		<div class="project-list">
+			{projects.map((project, i) => <ProjectCard project={project} index={i} />)}
+			<p class="loading-msg" id="no-match" hidden>No projects match this filter.</p>
+		</div>
+	</main>
+</Base>

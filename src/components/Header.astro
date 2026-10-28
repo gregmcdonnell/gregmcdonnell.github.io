@@ -1,0 +1,26 @@
+---
+const links = [
+	{ href: '/projects', label: 'Projects' },
+	{ href: '/simulations', label: 'Simulations' },
+	{ href: '/gallery', label: 'Gallery' },
+	{ href: '/notes', label: 'Notes' },
+];
+
+// The current page's path, so we can mark the matching link as active.
+const { pathname } = Astro.url;
+---
+
+<nav class="site-nav">
+	<a class="nav-home" href="/">Greg McDonnell</a>
+	<ul class="nav-links">
+		{
+			links.map(({ href, label }) => (
+				<li>
+					<a href={href} class:list={{ active: pathname.startsWith(href) }}>
+						{label}
+					</a>
+				</li>
+			))
+		}
+	</ul>
+</nav>

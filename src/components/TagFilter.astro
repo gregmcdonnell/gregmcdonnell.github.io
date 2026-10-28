@@ -1,0 +1,33 @@
+---
+// Filter buttons for any list whose items carry a `data-tags="a,b"` attribute.
+// Include a `<p id="no-match" hidden>` in the list to show an empty-state message.
+interface Props {
+	tags: string[];
+}
+
+const { tags } = Astro.props;
+---
+
+<div class="filter-nav">
+	<button class="filter-btn active" data-filter="all">All</button>
+	{tags.map((tag) => <button class="filter-btn" data-filter={tag}>{tag}</button>)}
+</div>
+
+<script>
+	const buttons = document.querySelectorAll<HTMLButtonElement>('.filter-btn');
+	const items = document.querySelectorAll<HTMLElement>('[data-tags]');
+	const noMatch = document.getElementById('no-match');
+
+	function setFilter(filter: string) {
+		buttons.forEach((b) => b.classList.toggle('active', b.dataset.filter === filter));
+		let visible = 0;
+		items.forEach((item) => {
+			const show = filter === 'all' || item.dataset.tags!.split(',').includes(filter);
+			item.hidden = !show;
+			if (show) visible++;
+		});
+		if (noMatch) noMatch.hidden = visible > 0;
+	}
+
+	buttons.forEach((b) => b.addEventListener('click', () => setFilter(b.dataset.filter!)));
+</script>

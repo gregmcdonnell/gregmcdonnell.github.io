@@ -1,0 +1,7 @@
+{
+  "title": "Coupled Pendulums",
+  "date": "2025-06",
+  "description": "A quick javascript simulation of a line of pendulums coupled with angular springs.",
+  "tags": ["simulation", "physics", "pendulums", "spring"],
+  "project": "coupled-pendulums"
+}

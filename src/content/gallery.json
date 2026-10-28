@@ -1,0 +1,54 @@
+[
+  {
+    "id": "cloth",
+    "src": "/assets/images/cloth-sim/cloth-1.png",
+    "simulation": "simple-cloth",
+    "tags": ["simulation", "physics", "cloth", "soft-body"]
+  },
+  {
+    "id": "coupled-pendulums",
+    "src": "/assets/images/coupled-pendulums/coupled-pend-1.png",
+    "project": "coupled-pendulums"
+  },
+  {
+    "id": "gpu-particles",
+    "src": "/assets/images/gpu-particle-collisions/gpu-particles-1.png",
+    "project": "gpu-particle-collisions"
+  },
+  {
+    "id": "gpu-granular-lattice",
+    "src": "/assets/images/gpu-particle-collisions/granular_gpu_3g9rqcc8rw.png",
+    "caption": "Particles pack into crystal lattices with imperfections like linear dislocations and holes.",
+    "project": "gpu-particle-collisions"
+  },
+  {
+    "id": "gpu-collision-force",
+    "src": "/assets/images/gpu-particle-collisions/particles2d-collide-force.gif",
+    "project": "gpu-particle-collisions"
+  },
+  {
+    "id": "gpu-grid-blocks",
+    "src": "/assets/images/gpu-particle-collisions/unity_6ngwejjxn7.png",
+    "project": "gpu-particle-collisions"
+  },
+  {
+    "id": "piano-keyboard",
+    "src": "/assets/images/piano-keyboard/piano-1.png",
+    "simulation": "piano-keyboard"
+  },
+  {
+    "id": "procedural-fields",
+    "src": "/assets/images/procedural-fields/field1.png",
+    "simulation": "procedural-fields"
+  },
+  {
+    "id": "particles-js",
+    "src": "/assets/images/shared/particles-js-1.png",
+    "simulation": "particles-gpu-js"
+  },
+  {
+    "id": "solar-system-orbits",
+    "src": "/assets/images/solar-system/solar-system-orbits.png",
+    "project": "solar-system"
+  }
+]

@@ -1,0 +1,30 @@
+---
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+	sim: CollectionEntry<'simulations'>;
+	index?: number;
+}
+
+const { sim, index = 0 } = Astro.props;
+const { title, date, description, tags } = sim.data;
+// The sim's files live in public/simulations/<path>/, served as-is.
+const href = `/simulations/${sim.data.path ?? sim.id}/`;
+---
+
+<a
+	class={`project-card project-card-i stagger-${Math.min(index + 1, 6)}`}
+	href={href}
+	data-tags={tags.join(',')}
+>
+	<img class="project-card__thumb" src={`${href}thumbnail.png`} alt={`${title} preview`} loading="lazy" />
+	<div class="project-card__content">
+		<div class="project-meta">
+			<span class="project-date">{date.toISOString().slice(0, 7)}</span>
+			{tags.map((tag) => <span class="tag">{tag}</span>)}
+		</div>
+		<div class="project-title">{title}</div>
+		<div class="project-desc">{description}</div>
+	</div>
+	<span class="arrow">Run →</span>
+</a>
