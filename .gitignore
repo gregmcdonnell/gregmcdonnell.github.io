@@ -1,6 +1,3 @@
-archive/node_modules/
-archive/docs/ignore/
-archive/docs/simulations/pv-power-plant/nsrdb_fetch.py
 
 # build output
 dist/
