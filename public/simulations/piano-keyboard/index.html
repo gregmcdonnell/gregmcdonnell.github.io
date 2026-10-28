@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="I wanted a way to play piano on my laptop, and ended up diving into synthesizer programming.">
+  <meta name="date" content="2026-01">
+  <title>Piano-Keyboard</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      color: white;
+      font-family: sans-serif;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    #padRect {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      width: 200px;
+      height: 200px;
+      background-color: rgba(255, 255, 255, 0.541);
+      color: black;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-family: sans-serif;
+      font-size: 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      z-index: 10;
+      backdrop-filter: blur(4px);
+      user-select: none;
+      transition: background 0.3s ease, color 0.3s ease 4s;
+      overflow: hidden;
+    }
+
+    #padRect:hover {
+      background-color: rgba(255, 255, 255, 0.8);
+    }
+    #padRect:active {
+      background-color: rgba(255, 255, 255, 0.8);
+      color: transparent;
+      transition: color 0.3s ease;
+    }
+      /* Glow layer */
+    #padRect::before {
+      content: "";
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(0, 238, 255, 0.726), transparent 20%);
+      /* transform: translate(-50%, -50%); */
+      opacity: 0;
+      transition: opacity 0.3s ease 2s;
+    }
+
+    /* Show glow when hovering */
+    #padRect:active::before {
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+    .myButton {
+      color: black;
+      display: flex;
+      text-align: center;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      border-radius: 12px;
+      background-color: rgba(202, 202, 202, 0.8);
+      backdrop-filter: blur(4px);
+      cursor: pointer;
+      user-select: none;
+    }
+    .myButton:hover {
+      background-color: rgba(255, 255, 255, 0.8);
+    }
+    .myButton:active {
+      background-color: rgba(155, 154, 154, 0.8);
+    } 
+    .myButton.toggled {
+      background-color: rgba(0, 0, 0, 0.8);
+      color: white;
+    }
+    .container {
+      position: absolute;
+      /* top: 0; left: 0; right: 0; bottom: 0; */
+      display: flex;
+      justify-content: center;  /* center horizontally */
+      align-items: center;     /* center vertically */
+      /* background-color: rgba(255, 255, 255, 0.301); */
+    }
+    #loading-screen,
+    #start-screen {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: #111;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #loading-bar-container {
+      width: 80%;
+      height: 20px;
+      background: #333;
+    }
+
+    #loading-bar {
+      height: 100%;
+      width: 0%;
+      background: limegreen;
+    }
+
+    #start-button {
+      font-size: 1.5em;
+      padding: 0.5em 1em;
+    }
+
+  </style>
+
+  <!-- Import map shim for browsers without native support -->
+  <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+
+  <!-- Define all external dependencies in the import map -->
+  <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+                
+            }
+        }
+    </script>
+  <script src="https://cdn.jsdelivr.net/npm/noisejs@2.1.0/index.min.js"></script>
+  <script src="https://unpkg.com/tone/build/Tone.js"></script>
+</head>
+
+<body>
+  <!-- Loading Screen -->
+  <div id="loading-screen" style="display: flex;">
+    <div id="loading-bar-container">
+      <div id="loading-bar"></div>
+    </div>
+    <p id="loading-text">Loading...</p>
+  </div>
+
+  <!-- Start Screen -->
+  <div id="start-screen" style="display: none;">
+    <button id="start-button">Start</button>
+  </div>
+
+  <div id="app" style="display: none;">
+    <div id="padRect">Hold mouse down and move to modulate</div>
+    <div class="container" style="left: 50%; top: 10px; transform: translateX(-50%);">
+      <div id="Octave Buttons" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+        <div class="myButton" id="octaveDown" style="width: 70px; height: 70px; flex-direction: column;">-
+          <div style="font-size: 11px;">(left arrow)</div>
+        </div>
+        <div class="" id="Octave" style="user-select: none; width: 70px; text-align: center;">Change Octave</div>
+        <div class="myButton" id="octaveUp" style="width: 70px; height: 70px; flex-direction: column;">+
+          <div style="font-size: 11px;">(right arrow)</div>
+        </div>
+      </div>
+    </div>
+    <div class="container" style="left: 50%; bottom: 50px; transform: translateX(-50%);">
+      <div class="myButton" id="sustain" style="width: 200px; height: 70px; flex-direction: column;">Toggle Sustain
+        <div style="font-size: 11px;">(hold space for sustain)</div>
+      </div>
+    </div>
+  </div>
+  <script type="module">
+    
+    // Import dependencies
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+    import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.20/+esm';
+    import { ProceduralSkybox } from './procedural-skybox.js';
+    import { CustomPolySynth } from './custom-polysynth.js';
+    import { Waveform } from './waveform.js';
+
+    var noise = new Noise(Math.random());
+
+    const gui = new GUI();
+    gui.domElement.style.display = 'none';
+
+    // document.getElementById('start-button').addEventListener('click', () => {
+    //   document.getElementById('start-screen').style.display = 'none';
+    //   document.getElementById('app').style.display = '';
+    //   gui.domElement.style.display = '';
+    // });
+
+    Tone.setContext(new Tone.Context({ latencyHint: 'interactive' }));
+
+    const samplersToLoad = 2;
+    let loadedSamplers = 0
+    const loadingBar = document.getElementById('loading-bar');
+    function onSamplerLoaded() {
+      loadedSamplers++;
+      if (loadedSamplers == samplersToLoad) {
+        document.getElementById('loading-screen').style.display = 'none';
+        document.getElementById('app').style.display = '';
+        gui.domElement.style.display = '';
+      }
+    }
+    // const pianoPlayer = new Tone.Player("https://tonejs.github.io/audio/salamander/C4.mp3").toDestination();
+    const osc = new Tone.OmniOscillator('C2', "pwm").toDestination();
+    const osc2 = new Tone.OmniOscillator('C2', "pulse").toDestination();
+    // pianoPlayer.loop = true;
+
+    const piano = new Tone.Sampler({
+      urls: {
+        A0: "A0.mp3",
+        C1: "C1.mp3",
+        "D#1": "Ds1.mp3",
+        "F#1": "Fs1.mp3",
+        A1: "A1.mp3",
+        C2: "C2.mp3",
+        "D#2": "Ds2.mp3",
+        "F#2": "Fs2.mp3",
+        A2: "A2.mp3",
+        // C3: "C3.mp3",
+        "D#3": "Ds3.mp3",
+        "F#3": "Fs3.mp3",
+        A3: "A3.mp3",
+        C4: "C4.mp3",
+        "D#4": "Ds4.mp3",
+        "F#4": "Fs4.mp3",
+        A4: "A4.mp3",
+        C5: "C5.mp3",
+        "D#5": "Ds5.mp3",
+        "F#5": "Fs5.mp3",
+        A5: "A5.mp3",
+        C6: "C6.mp3",
+        "D#6": "Ds6.mp3",
+        "F#6": "Fs6.mp3",
+        A6: "A6.mp3",
+        C7: "C7.mp3",
+        "D#7": "Ds7.mp3",
+        "F#7": "Fs7.mp3",
+        A7: "A7.mp3",
+        C8: "C8.mp3",
+      },
+      release: 1,
+      baseUrl: "https://tonejs.github.io/audio/salamander/",
+      onload: () => onSamplerLoaded()
+    });
+    const casio = new Tone.Sampler({
+      // urls: {
+      //   "G#1": "Gs1.mp3",
+      //   A1: "A1.mp3",
+      //   B1: "B1.mp3",
+      //   C2: "C2.mp3",
+      //   "D#2": "Ds2.mp3",
+      //   "F#2": "Fs2.mp3",
+      //   G2: "G2.mp3"
+      // },
+      release: 1,
+      baseUrl: "https://tonejs.github.io/audio/casio/",
+      onload: () => onSamplerLoaded()
+    });
+
+    const samplers = {
+      Piano: piano,
+      Casio: casio,
+    }
+
+
+    // Scene setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 5, 13);
+    camera.lookAt(0, 0, 0);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x111111);
+    document.body.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.update();
+    const cameraTarget = new THREE.Vector3(0, 0, 0);
+    let cameraLerpSpeed = 0;
+    // Add gentle camera wobble
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0x404040);
+    scene.add(ambientLight);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(.3, 1, -.9).normalize();
+    scene.add(directionalLight);
+    // instead of downloading a large hdri lets use our procedural one where we can flow time of day
+    // const hdriUrl = 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/citrus_orchard_road_puresky_1k.hdr'
+    // new RGBELoader()
+    //   .load(hdriUrl, (texture) => {
+    //     texture.mapping = THREE.EquirectangularReflectionMapping;
+    //     scene.background = texture;
+    //     // scene.backgroundIntensity = 0.05;
+    //     scene.environment = texture;
+    //   });
+
+    const skybox = new ProceduralSkybox();
+    skybox.addToScene(scene, camera, renderer);
+    // skybox.addControlsToGUI(gui);
+    
+    const textCanvas = document.createElement('canvas');
+
+    const keyboardSequence = [
+      'KeyA',
+      'KeyZ', 'KeyS', 
+      'KeyX', 'KeyD', 
+      'KeyC', 'KeyF', 
+      'KeyV', 'KeyG', 
+      'KeyB', 'Backquote',
+      'Tab', 'Digit1', 
+      'KeyQ', 'Digit2', 
+      'KeyW', 'Digit3',
+      'KeyE', 'Digit4', 
+      'KeyR', 'Digit5', 
+      'KeyT', 'Digit6', 
+      'KeyY', 'Digit7', 
+      'KeyU', 'Digit8', 
+      'KeyI', 'Digit9', 
+      'KeyO', 'Digit0', 
+      'KeyP', 'Minus', 
+      'BracketLeft', 'Equal', 
+      'BracketRight', 'Backspace', 
+      'Backslash', 'KeyH',
+      'KeyN', 'KeyJ', 
+      'KeyM', 'KeyK', 
+      'Comma', 'KeyL',
+      'Period', 'Semicolon', 
+      'Slash', 'Quote'
+    ];
+
+    const baseNoteSequence = [
+      'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'
+    ];
+    const nextKeySteps = [
+      1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 2
+    ]
+
+
+    const codeToCharMap = {
+      Comma: ',',
+      Period: '.',
+      Slash: '/',
+      Minus: '-',
+      Equal: '=',
+      BracketLeft: '[',
+      BracketRight: ']',
+      Backslash: '\\',
+      Semicolon: ';',
+      Quote: "'",
+      Tab: 'tab',
+
+    }
+    let keyToNote = {};
+    let noteToKey = {}
+    let noteToMesh = {};
+    const noteSequence = [];
+
+    const params = {
+      currentInstrument: 'MonoSynth',
+      mode: 'Synthesizer',
+      startNote: 'D#',
+      startOctave: 2,
+      volume: 0,
+      highlightKeys: true,
+
+    }
+    const padElement = document.getElementById('padRect');
+    const padCoords = new THREE.Vector2(0,0);
+    const padState = {
+      active: false
+    };
+    padElement.addEventListener('mousedown', () => {
+      padState.active = true;
+      padCoords.set(0,0);
+      padElement.style.setProperty('--mx', `50%`);
+      padElement.style.setProperty('--my', `50%`);
+      padElement.requestPointerLock();
+    });
+    document.addEventListener('mouseup', () => {
+      padState.active = false
+      document.exitPointerLock();
+    });
+
+    padElement.addEventListener('mousemove', (e) => {
+      if (!padState.active) return;
+      const bounds = padElement.getBoundingClientRect();
+      const dx = e.movementX;
+      const dy = e.movementY;
+      padCoords.x += dx * 1;
+      padCoords.y += dy * 1;
+      // const x = e.clientX - bounds.left;
+      // const y = e.clientY - bounds.top;
+      padElement.style.setProperty('--mx', `${padCoords.x + 50}%`);
+      padElement.style.setProperty('--my', `${padCoords.y + 50}%`);
+      // const x = e.clientX / window.innerWidth;
+      // const y = e.clientY / window.innerHeight;
+      // padElement.style.setProperty('--mx', `${x * 100}%`);
+      // padElement.style.setProperty('--my', `${y * 100}%`);
+    });
+
+    // Listen for pointer lock changes
+    document.addEventListener('pointerlockchange', () => {
+      if (document.pointerLockElement === renderer.domElement) {
+        console.log('Pointer locked');
+      } else {
+        console.log('Pointer unlocked');
+      }
+    });
+
+    function isBlack(note) {
+      return note.includes('#');
+    }
+
+    function remapKeys(startNote = 'C', startOctave = 2) {
+      keyToNote = {};
+      noteToKey = {};
+      noteSequence.length = 0;
+      let noteIndex = baseNoteSequence.indexOf(startNote);
+      if (noteIndex == -1) {
+        startNote = 'C';
+        noteIndex = 0; // default to start at C if pass in invalid note
+      }
+      
+      let keyboardIndex = isBlack(startNote) ? 0 : 1; // start at KeyA if black, KeyZ if white
+      let octave = startOctave;
+
+      while (keyboardIndex < keyboardSequence.length) {
+        const note = baseNoteSequence[noteIndex] + octave;
+
+        const key = keyboardSequence[keyboardIndex];
+        keyToNote[key] = note;
+        noteToKey[note] = key;
+        keyboardIndex += nextKeySteps[noteIndex];
+
+        noteIndex++;
+        if (noteIndex == baseNoteSequence.length) {
+          noteIndex = 0;
+          octave++;
+        }
+        noteSequence.push(note);
+      }
+    }
+
+    const whiteKeyWidth = 1;
+    const whiteKeyHeight = 0.5;
+    const whiteKeyDepth = 4;
+
+    const blackKeyWidth = 0.5;
+    const blackKeyHeight = 0.9;
+    const blackKeyDepth = 2.5;
+
+    const whiteMaterial = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0, emissive: 0x00dddd, emissiveIntensity: 0 });
+    const blackMaterial = whiteMaterial.clone();
+    blackMaterial.color.set(0x000000);
+
+    let keysGroup = new THREE.Group();
+    let keyMappingsGroup = new THREE.Group();
+    const pianoTracker = new THREE.Object3D();
+    scene.add(pianoTracker);
+    const planeGeometry = new THREE.PlaneGeometry(1, 1);
+    const geometryWhiteKey = new THREE.BoxGeometry(whiteKeyWidth * 0.9, whiteKeyHeight, whiteKeyDepth);
+    const geometryBlackKey = new THREE.BoxGeometry(blackKeyWidth, blackKeyHeight, blackKeyDepth);
+
+    // const keys = [];
+    function resetKeyboard() {
+      scene.remove(keysGroup);
+      keysGroup = new THREE.Group();
+      keyMappingsGroup = new THREE.Group();
+      keysGroup.add(keyMappingsGroup);
+      keyMappingsGroup.visible = params.showKeyMappings;
+      noteToMesh = {};
+      const whiteKeyNoteToIndex = { C:0, D:1, E:2, F:3, G:4, A:5, B:6 }
+      const firstNote = noteSequence[0];
+      const firstWhiteIndex = whiteKeyNoteToIndex[firstNote[0]] + parseInt(firstNote[firstNote.length - 1]) * 7  + (isBlack(firstNote) ? 1 : 0);
+      let whiteIndex = firstWhiteIndex;
+
+
+      noteSequence.forEach(note => {
+        const isBlackKey = isBlack(note);
+
+        if (!isBlackKey) {
+          const x = whiteIndex * whiteKeyWidth;
+          const mesh = new THREE.Mesh(geometryWhiteKey, whiteMaterial.clone());
+          mesh.position.set(x, whiteKeyHeight / 2, 0);
+          mesh.defaultPosition = mesh.position.clone();
+          keysGroup.add(mesh);
+          // keys.push(mesh);
+          noteToMesh[note] = mesh;
+          const keyCode = noteToKey[note];
+          let keyChar = codeToCharMap[keyCode];
+          if (!keyChar) keyChar = keyCode.replace('Key', '').replace('Digit', '').toLowerCase();
+          addKeyboardMesh(keyChar, planeGeometry, new THREE.Vector3(x, 0, 2.5), keyMappingsGroup);
+
+          whiteIndex++;
+        } else {
+          // Position black keys between the white ones
+          const prevWhiteX = (whiteIndex - 1) * whiteKeyWidth;
+          const nextWhiteX = whiteIndex * whiteKeyWidth;
+          const x = (prevWhiteX + nextWhiteX) / 2;
+
+          const mesh = new THREE.Mesh(geometryBlackKey, blackMaterial.clone());
+          mesh.position.set(x, blackKeyHeight / 2 + 0.05, -0.2); // slightly above and forward
+          mesh.defaultPosition = mesh.position.clone();
+          keysGroup.add(mesh);
+          // keys.push(mesh);
+          noteToMesh[note] = mesh;
+        }
+      });
+      
+      const pianoBaseMesh = new THREE.Mesh(new THREE.BoxGeometry((whiteIndex - firstWhiteIndex + 2) * whiteKeyWidth, 2, 6), new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0}));
+      const pianoCenterX = firstWhiteIndex + (whiteIndex - firstWhiteIndex - 1) * whiteKeyWidth / 2;
+      pianoBaseMesh.position.set(pianoCenterX, -1.2, 0);
+      pianoTracker.position.copy(pianoBaseMesh.position);
+      keysGroup.add(pianoBaseMesh);
+      keysGroup.rotation.set(0.3, 0, 0);
+      // keysGroup.position.set((whiteIndex - firstWhiteIndex - 1) * whiteKeyWidth / 2, 0, 0);
+      cameraTarget.x = pianoCenterX;
+      cameraLerpSpeed = 0;
+      scene.add(keysGroup);
+    }
+
+    function changeOctave(delta) {
+      const changedOctave = params.startOctave + delta;
+      if (changedOctave >= 0 && changedOctave <= 5) {
+        params.startOctave = changedOctave;
+        remapKeys(params.startNote, params.startOctave);
+        resetKeyboard();
+      }
+    }
+    
+    document.getElementById('octaveDown').addEventListener('click', () => {
+      changeOctave(-1);
+    });
+    document.getElementById('octaveUp').addEventListener('click', () => {
+      changeOctave(1);
+    });
+    remapKeys(params.startNote, params.startOctave);
+    resetKeyboard();
+    camera.position.x = cameraTarget.x;
+    controls.target.copy(cameraTarget);
+    controls.update();
+
+    gui.add(params, 'startNote').onFinishChange(function() {
+      remapKeys(params.startNote, params.startOctave);
+      resetKeyboard();
+    });
+    gui.add(params, 'startOctave').listen().onFinishChange(function() {
+      remapKeys(params.startNote, params.startOctave);
+      resetKeyboard();
+    });
+
+    const currentEnvelope = {
+      attack: 0.01,
+      decay: 19.0,
+      sustain: 1.0, // holds while note is pressed or sustained
+      release: 0.4  // slowly fades after release
+    }
+
+    const synthProperties = {
+      oscillator: {
+        type: 'pwm',
+        modulationType: 'sine',
+        modulationDepth: 1,
+        modulationFrequency: 1,
+        modulationMin: 0,
+        modulationMax: 1,
+      },
+      envelope: currentEnvelope,
+      filter: {
+        type: 'lowpass'
+      },
+      filterEnvelope: {
+        // baseFrequency: 1000,
+        // octaves: 1,
+        // exponent: 1,
+      },
+      // portamento: 0.5,
+    };
+    // let instrument = new Tone.MonoSynth(synthProperties).toDestination();
+
+    let instrument = new CustomPolySynth(Tone.MonoSynth, synthProperties);
+    instrument.set({volume: params.volume - 20});
+    const voice = instrument.allVoices[0];
+    try {
+      synthProperties.filter.type = voice.filter.type;
+      synthProperties.filterEnvelope.exponent = voice.filterEnvelope.exponent;
+      synthProperties.filterEnvelope.baseFrequency = voice.filterEnvelope.baseFrequency;
+      synthProperties.filterEnvelope.octaves = voice.filterEnvelope.octaves;
+    }
+    catch (e) {
+      console.log(e);
+    }
+    const waveformParent = new THREE.Group();
+    pianoTracker.add(waveformParent);
+    const waveform = new Waveform(waveformParent);
+
+    const synths = {
+      Synth: Tone.Synth,
+      AMSynth: Tone.AMSynth,
+      FMSynth: Tone.FMSynth,
+      MonoSynth: Tone.MonoSynth,
+
+    }
+    const otherInstruments = {
+
+      PluckSynth: Tone.PluckSynth,
+      DuoSynth: Tone.DuoSynth,
+      NoiseSynth: Tone.NoiseSynth,
+    }
+
+    gui.add(params, 'volume').name('Volume (dB)').onChange(function(value) {
+      instrument.set({volume: (instrument instanceof CustomPolySynth) ? value - 20 : 0});
+      
+    });
+    const meter = new Tone.Meter();
+    Tone.getDestination().connect(meter);
+    const monitor = {meter: 0};
+    gui.add(monitor, 'meter', 0, 1).listen().disable();
+    setInterval(() => {
+      const dB = meter.getValue();
+      monitor.meter = Math.max(0, Math.min(1, (dB + 60) / 60));
+    }, 100);
+    const modeGUI = gui.add(params, 'mode', ['Synthesizer', 'Sampler']);
+    const synthFolder = gui.addFolder('Synth');
+    const samplerFolder = gui.addFolder('Sampler');
+    (params.mode == 'Synthesizer') ? samplerFolder.hide() : synthFolder.hide();
+
+    modeGUI.onChange(function(value) {
+      instrument.disconnect();
+      if (value == 'Synthesizer') {
+        instrument = new CustomPolySynth(Tone.MonoSynth, synthProperties);
+        synthFolder.show();
+        samplerFolder.hide();
+        instrument.set({volume: params.volume - 20});
+      }
+      else {
+        instrument = samplers.Piano.toDestination();
+        synthFolder.hide();
+        samplerFolder.show();
+        instrument.set({volume: params.volume});
+      }
+    });
+    // gui.add(params, 'currentInstrument', [...Object.keys(samplers), ...Object.keys(synths)]).onChange(function(value) {
+    //   // instrument.dispose();
+    //   instrument.disconnect();
+    //   if (value in samplers) {
+    //     instrument = samplers[value].toDestination();
+    //   }
+    //   else {
+    //     instrument = new CustomPolySynth(synths[value], synthProperties);
+    //     // new Tone.PolySynth(synths[value], { envelope: currentEnvelope }).toDestination();
+    //     // instrument.set({volume: -14});
+    //   }
+    // });
+    const envelopeFolder = synthFolder.addFolder('Envelope');
+    envelopeFolder.add(currentEnvelope, 'attack').onChange(function(value) {
+      instrument.set({envelope: currentEnvelope});
+    });
+    envelopeFolder.add(currentEnvelope, 'decay').onChange(function(value) {
+      instrument.set({envelope: currentEnvelope});
+    });
+    envelopeFolder.add(currentEnvelope, 'sustain').onChange(function(value) {
+      instrument.set({envelope: currentEnvelope});
+    });
+    envelopeFolder.add(currentEnvelope, 'release').onChange(function(value) {
+      instrument.set({envelope: currentEnvelope});
+    });
+
+
+    const oscillatorFolder = synthFolder.addFolder('Oscillator');
+    oscillatorFolder.add(synthProperties.oscillator, 'modulationFrequency', 0, 10).name('Modulation Frequency').onChange(function(value) {
+      instrument.set({oscillator: {modulationFrequency: value}});
+    });
+    oscillatorFolder.add(synthProperties.oscillator, 'modulationDepth', 0, 10).name('Modulation Depth').onChange(function(value) {
+      instrument.set({oscillator: {modulationDepth: value}});
+    });
+    oscillatorFolder.add(synthProperties.oscillator, 'modulationMin', 0, 10).name('Modulation Min').onChange(function(value) {
+      instrument.set({oscillator: {modulationMin: value}});
+    });
+    oscillatorFolder.add(synthProperties.oscillator, 'modulationMax', 0, 10).name('Modulation Max').onChange(function(value) {
+      instrument.set({oscillator: {modulationMax: value}});
+    });
+    oscillatorFolder.add(synthProperties.oscillator, 'type', ['sine', 'pwm', 'square', 'sawtooth']).name('Type').onChange(function(value) {
+      instrument.set({oscillator: {type: value}});
+    });
+    const filterFolder = synthFolder.addFolder('Filter');
+    filterFolder.add(synthProperties.filter, 'type', ["lowpass", "highpass", "bandpass", "lowshelf", "highshelf", "notch", "allpass", "peaking"]).name('Type').onChange(function(value) {
+      instrument.set({filter: {type: value}});
+    });
+    filterFolder.add(synthProperties.filterEnvelope, 'baseFrequency', 0, 1000).name('Base Frequency').onChange(function(value) {
+      instrument.set({filterEnvelope: {baseFrequency: value}});
+    });
+    filterFolder.add(synthProperties.filterEnvelope, 'octaves', 0, 20).name('Octaves').onChange(function(value) {
+      instrument.set({filterEnvelope: {octaves: value}});
+    });
+    filterFolder.add(synthProperties.filterEnvelope, 'exponent', 0, 20).name('Exponent').onChange(function(value) {
+      instrument.set({filterEnvelope: {exponent: value}});
+    });
+
+
+    const visualsFolder = gui.addFolder('Visuals');
+    visualsFolder.add(waveform, 'useTrigger');
+    visualsFolder.add(waveform, 'display').name('Show Waveform/Spectrum').onChange((value) => waveformParent.visible = value);
+    visualsFolder.add(skybox, 'autoRotate');
+    visualsFolder.add(skybox, 'skyPhi', 0, Math.PI * 2).name('Time of Day');
+    params.showKeyMappings = true;
+    visualsFolder.add(params, 'showKeyMappings').onChange(function(value) {
+      keyMappingsGroup.visible = value;
+    });
+    visualsFolder.add(params, 'highlightKeys');
+    params.cinematicCamera = true;
+    visualsFolder.add(params, 'cinematicCamera');
+    // let instrument = new Tone.PolySynth(Tone.MonoSynth, { envelope: currentEnvelope, maxPolyphony: 8 }).toDestination();
+    // instrument.set(synthProperties);
+    const notesPlaying = new Map();
+    const notesHeld = new Set();
+    CustomPolySynth.notesHeld = notesHeld;
+
+    let sustainDown = false;
+    let sustainToggled = false;
+    const sustainButton = document.getElementById('sustain');
+    sustainButton.addEventListener('click', () => {
+      sustainToggled = !sustainToggled;
+      sustainDown = sustainToggled;
+      if (sustainToggled) {
+        sustainButton.classList.add('toggled');
+      }
+      else {
+        sustainButton.classList.remove('toggled');
+      }
+    });
+
+
+    // Trigger the synth
+    function playNote(note) {
+      // if (note && !notesPlaying.has(note)) {
+      if (note && !notesHeld.has(note)) {
+        if (notesPlaying.has(note)) {
+          instrument.triggerRelease(note);
+        }
+        instrument.triggerAttack(note);
+        notesPlaying.set(note, Tone.now());
+        notesHeld.add(note);
+        const mesh = noteToMesh[note];
+        if (mesh) {
+          mesh.material.emissiveIntensity = params.highlightKeys ? 1 : 0;
+          mesh.rotation.x = .1;
+          mesh.position.y -= 0.1;
+        }
+      }
+    }
+
+    function releaseNote(note) {
+      if (note) {
+        const mesh = noteToMesh[note];
+        if (mesh) {
+          mesh.material.emissiveIntensity = 0;
+          mesh.rotation.x = 0;
+          mesh.position.copy(mesh.defaultPosition);
+        }
+        notesHeld.delete(note);
+        if (!sustainDown) {
+          notesPlaying.delete(note);
+          instrument.triggerRelease(note);
+
+        }
+      }
+    }
+
+    function checkToReleasePlayingNotes() {
+      // instrument.set({
+      //     envelope: {
+      //         release: 0.05
+      //     }
+      // });
+      for (const [note, time] of notesPlaying) {
+        if (Tone.now() - time > 8.0) {
+          notesPlaying.delete(note);
+          instrument.triggerRelease(note);
+        }
+      }
+      while (notesPlaying.size > 8) {
+        // keys().next().value gives the map's key, not the value (confusing I know)
+        const oldestNote = notesPlaying.keys().next().value;
+        notesPlaying.delete(oldestNote);
+        instrument.triggerRelease(oldestNote);
+      }
+      // instrument.set({envelope: currentEnvelope});
+      // console.log(instrument.activeVoices);
+    }
+    // Start audio context on first interaction (required by browser)
+    document.addEventListener('click', async () => {
+      await Tone.start();
+      Tone.Transport.start();
+      console.log('Audio context started');
+    });
+
+    function pressSustain() {
+      sustainDown = true;
+      sustainButton.classList.add('toggled');
+
+    }
+
+    function releaseSustain() {
+      sustainDown = false;
+      // stop playing notes from that aren't held down
+      for (const note of notesPlaying.keys()) {
+        if (!notesHeld.has(note)) {
+          notesPlaying.delete(note);
+          instrument.triggerRelease(note);
+        }
+      }
+      sustainButton.classList.remove('toggled');
+    }
+
+    // Key listeners
+    document.addEventListener('keydown', (e) => {
+      if (e.code == 'ArrowLeft') {
+        changeOctave(-1);
+      }
+      if (e.code == 'ArrowRight') {
+        changeOctave(1);
+      }
+      
+      const note = keyToNote[e.code];
+      if (note) e.preventDefault();
+      if (!e.repeat) {
+        playNote(note);
+        if (e.code == 'Space') {
+          sustainToggled ? releaseSustain() : pressSustain();
+        }
+      }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (e.code == 'ArrowUp') {
+        osc.stop();
+      }
+      if (e.code == 'ArrowDown') {
+        osc2.stop();
+      }
+      // console.log(e.code + ' up');
+      if (e.code == 'Space') {
+        sustainToggled ? pressSustain() : releaseSustain();
+      }
+      else {
+        const note = keyToNote[e.code];
+        releaseNote(note);
+      }
+    });
+
+
+
+
+    const cameraOrbitPos = new THREE.Vector3();
+    const padCoordsLerped = new THREE.Vector2();
+    // Main update loop
+    function update() {
+      //checkToReleasePlayingNotes();
+      waveform.update();
+
+      if (!padState.active) {
+        padCoords.lerp(new THREE.Vector2(0,0), 0.1);
+        padElement.style.setProperty('--mx', `${padCoords.x + 50}%`);
+        padElement.style.setProperty('--my', `${padCoords.y + 50}%`);
+      }
+      padCoordsLerped.lerp(padCoords, 0.1);
+      instrument.set({filterEnvelope: {baseFrequency: synthProperties.filterEnvelope.baseFrequency * Math.exp(-padCoordsLerped.y / 50)}});
+      instrument.set({filterEnvelope: {exponent: synthProperties.filterEnvelope.exponent * Math.exp(padCoordsLerped.x / 50)}});
+      // pianoPlayer.playbackRate = Math.exp(padCoordsLerped.y / 50);
+      const lastTarget = controls.target.clone();
+      cameraLerpSpeed = Math.min(cameraLerpSpeed + .0007, .1);
+      controls.target.lerp(cameraTarget, cameraLerpSpeed);
+      camera.position.add(controls.target.clone().sub(lastTarget));
+      cameraOrbitPos.copy(camera.position);
+      const time = Tone.now();
+      if (params.cinematicCamera) {
+        const cameraOffset = new THREE.Vector3(noise.perlin2(time*.1, 0)*.01, noise.perlin2(0, time*.1)*.01, 0);
+        camera.position.add(cameraOffset);
+      }
+      camera.lookAt(controls.target);
+      controls.update();
+    }
+
+    
+
+    // Function to create a new texture with some text
+    function createTextTexture(text, width = 64, height = 64) {
+      // Clear the canvas
+      const textCanvas = document.createElement('canvas');
+      textCanvas.width = width;
+      textCanvas.height = height;
+      const ctx = textCanvas.getContext('2d');
+      ctx.clearRect(0, 0, textCanvas.width, textCanvas.height);
+
+      // Draw new text
+      ctx.fillStyle = 'white';
+      ctx.font = `${text == 'tab' ? '32' : '48'}px sans-serif`;
+      // ctx.font = '48px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, textCanvas.width / 2, textCanvas.height / 2);
+
+      // Create a new texture from the current canvas contents
+      const texture = new THREE.CanvasTexture(textCanvas);
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.needsUpdate = true;
+
+      return texture;
+    }
+
+    function addKeyboardMesh(key, geometry, position, objToAttachTo) {
+      const texture = createTextTexture(key);
+      const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.copy(position);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.scale.set(0.75, 0.75, 0.75);
+      objToAttachTo.add(mesh);
+    }
+
+    // Animation loop
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const progress = Math.min(performance.now() / 5000, 1) * 100;
+      loadingBar.style.width = progress + '%';
+      update();
+
+      renderer.render(scene, camera);
+    }
+
+
+    function formatName(key) {
+      return key.replace(/([A-Z])/g, ' $1') // insert space before caps
+                .replace(/^./, str => str.toUpperCase()); // capitalize first letter
+    }
+
+    function renameAllControllers(gui) {
+      // Rename controllers at the current GUI level
+      gui.controllers.forEach(controller => {
+        controller.name(formatName(controller._name));
+      });
+
+      // Recursively rename controllers in each folder
+      gui.folders.forEach(subFolder => {
+        renameAllControllers(subFolder);
+      });
+    }
+    renameAllControllers(gui);
+    
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+
+  </script>
+</body>
+
+</html>

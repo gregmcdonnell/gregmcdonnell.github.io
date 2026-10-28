@@ -1,43 +1,73 @@
-# Astro Starter Kit: Minimal
+# gregmcdonnell.github.io
 
-```sh
-npm create astro@latest -- --template minimal
-```
+Personal engineering and physics portfolio: projects, interactive simulations, a gallery and notes.
+Built with [Astro](https://astro.build) and deployed to GitHub Pages with GitHub Actions.
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+Live site: https://gregmcdonnell.github.io
 
-## 🚀 Project Structure
+## Commands
 
-Inside of your Astro project, you'll see the following folders and files:
+Run from the repo root. Requires Node 22.23.4 or newer.
+
+| Command           | Action                                          |
+| :---------------- | :---------------------------------------------- |
+| `npm install`     | Install dependencies                            |
+| `npm run dev`     | Dev server at `localhost:4321`                  |
+| `npm run build`   | Build the site into `dist/`                     |
+| `npm run preview` | Serve `dist/` locally, as GitHub Pages would    |
+
+## Project structure
 
 ```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
+src/
+  pages/        Routes (file path = URL): home, projects, simulations, gallery, notes
+  layouts/      Base.astro (page shell), ProjectLayout.astro
+  components/   Header, Footer, ProjectCard, SimCard, TagFilter
+  content/      Site content, validated by the schemas in src/content.config.ts
+    projects/     One Markdown file per project write-up
+    simulations/  One JSON file per simulation (metadata only)
+    gallery.json  Gallery images and captions
+  scripts/      Client-side scripts bundled by Astro
+  styles/       global.css
+public/         Copied to the site as-is: simulations, images, favicons
+archive/        Previous hand-built site, kept for reference. Not part of the build.
 ```
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+## Adding content
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+**A project.** Create `src/content/projects/<slug>.md`:
 
-Any static assets, like images, can be placed in the `public/` directory.
+```md
+---
+title: My Project
+date: 2026-06
+description: One-line summary.
+tags: [simulation, physics]
+image: /assets/images/my-project/cover.png
+simulation: my-sim        # optional: folder in public/simulations/, adds an "Open simulation" button
+featured: true            # optional: show on the home page
+---
 
-## 🧞 Commands
+Write the article in Markdown. Math uses KaTeX: `$x^2$` inline, `$$ ... $$` for display
+(escape literal dollar signs as `\$`). Fenced code blocks are highlighted at build time.
+```
 
-All commands are run from the root of the project, from a terminal:
+The page appears at `/projects/<slug>` and on the projects index automatically.
 
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
+**A simulation.**
+1. Put the sim in `public/simulations/<name>/` with an `index.html` and a `thumbnail.png`.
+2. Add `src/content/simulations/<name>.json` with `title`, `date`, and optionally `description`,
+   `tags`, `project` (a project slug), `featured`, `draft`.
 
-## 👀 Want to learn more?
+**A gallery image.** Put the file under `public/assets/images/` and add an entry to
+`src/content/gallery.json` with `src`, and a `project` or `simulation` slug to link it.
 
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+A missing required field or a reference to a project/simulation that doesn't exist fails the
+build with an error that names the file.
+
+## Deployment
+
+Pushing to `main` runs `.github/workflows/deploy.yml`, which builds the site and publishes `dist/`
+to GitHub Pages. `dist/` is not committed.
+
+One-time setup: repo **Settings → Pages → Build and deployment → Source: GitHub Actions**.

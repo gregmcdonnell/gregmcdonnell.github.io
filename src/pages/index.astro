@@ -1,5 +1,8 @@
 ---
+import { getCollection } from 'astro:content';
 import Base from '../layouts/Base.astro';
+import ProjectCard from '../components/ProjectCard.astro';
+import SimCard from '../components/SimCard.astro';
 
 const tiles = [
 	{
@@ -27,6 +30,17 @@ const tiles = [
 		desc: 'Writeups on interesting techniques, math, and ideas outside of specific projects.',
 	},
 ];
+
+// Featured projects and simulations are mixed into one list, newest first.
+const featured = [
+	...(await getCollection('projects', ({ data }) => data.featured)).map((entry) => ({
+		kind: 'project' as const,
+		entry,
+	})),
+	...(await getCollection('simulations', ({ data }) => data.featured && !data.draft)).map(
+		(entry) => ({ kind: 'sim' as const, entry }),
+	),
+].sort((a, b) => b.entry.data.date.getTime() - a.entry.data.date.getTime());
 ---
 
 <Base title="Greg McDonnell — Physics & Engineering">
@@ -51,8 +65,16 @@ const tiles = [
 			<a class="section-link" href="/projects">All projects →</a>
 		</div>
 		<div class="project-list">
-			<!-- TODO: render from the projects/simulations collections (Steps 5-6) -->
-			<p class="loading-msg">Coming soon.</p>
+			{
+				featured.map((item, i) =>
+					item.kind === 'project' ? (
+						<ProjectCard project={item.entry} index={i} />
+					) : (
+						<SimCard sim={item.entry} index={i} />
+					),
+				)
+			}
+			{featured.length === 0 && <p class="loading-msg">No featured items yet.</p>}
 		</div>
 	</div>
 

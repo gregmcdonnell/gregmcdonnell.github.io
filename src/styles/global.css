@@ -19,9 +19,9 @@
   --border: #e4e4e0;
   --border-light: #efefec;
 
-  --text-primary: #141413;
-  --text-secondary: #44433f;
-  --text-muted: #78776f;
+  --text-primary: #151515;
+  --text-secondary: #464646;
+  --text-muted: #7a7a7a;
 
   --accent: #1a4a8a;
   --accent-hover: #133a6e;
@@ -139,9 +139,12 @@ body {
   transition: color 0.15s ease;
 }
 
-.nav-links a:hover,
-.nav-links a.active {
+.nav-links a:hover {
   color: var(--text-primary);
+}
+
+.nav-links a.active {
+  font-weight: bold;
 }
 
 /* ── Page header ── */
@@ -752,4 +755,8 @@ pre[class*="language-"] {
 @keyframes wiggle {
   from { transform: translateX(0px) scale(1); }
   to   { transform: translateX(3px) scale(1.2); }
+}
+/* Class-based display rules (e.g. .project-card) would otherwise override the hidden attribute. */
+[hidden] {
+  display: none !important;
 }

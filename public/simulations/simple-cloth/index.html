@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A simple cloth physics sim to help learn three js.">
+    <meta name="date" content="2025">
+    <title>Simple Cloth</title>
+    
+    <!-- Basic styling -->
+    <style>
+        body { 
+          margin: 0; 
+          overflow: hidden; 
+          color: white;
+          font-family: sans-serif;
+        }
+        canvas { display: block; }
+        #info {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+        .slider-left {
+          position: absolute;
+          left: 10px;
+          z-index: 1;
+          text-align: left;
+        }
+    </style>
+    
+    <!-- Import map shim for browsers without native support -->
+    <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+    
+    <!-- Define all external dependencies in the import map -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+                "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="info">Cloth Simulation</div>
+    <div class="slider-left" style="top: 10px;">FPS: <span id="fpsValue">0</span></div>
+    <div class="slider-left" style="top: 60px;">
+      <div>Wind Force</div>
+      <input type="range" id="sliderWind" min="0" max="5" value="2" step=".01" style="width: 160px;">
+    </div>
+    
+    <script type="module">
+        // Import dependencies
+        import * as THREE from 'three';
+        import * as CANNON from 'cannon-es';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        
+        const sliderWind = document.getElementById('sliderWind');
+        const fpsValue = document.getElementById('fpsValue');
+        // 1. Create scene, camera, and renderer
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x333333);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+        
+        // 2. Add camera controls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        camera.position.z = 10;
+        controls.update();
+        
+        // 3. Add lights
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(1, 3, 2);
+        scene.add(directionalLight);
+        
+        
+        // 6. Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        let vector = new THREE.Vector3(1, 0, 0);
+        // let arrowHelper = new THREE.ArrowHelper(
+        //   vector.clone().normalize(), // direction
+        //   new THREE.Vector3(0, -2, 0), // origin
+        //   vector.length(),            // length
+        //   0xff0000                    // color
+        // );
+        // scene.add(arrowHelper);
+        // Create the world
+        const world = new CANNON.World();
+
+        // Create the cloth
+        const clothWidth = 29;
+        const clothHeight = 20;
+        const sphereRadius = 0.1;
+        const springConstant = 300;
+        const dampingConstant = 5;
+        const cloth = [];
+        const springs = [];
+        for (let i = 0; i < clothWidth; i++) {
+          for (let j = 0; j < clothHeight; j++) {
+            const sphere = new CANNON.Body({
+              mass: .5,
+              position: new CANNON.Vec3((i - clothWidth / 2) * sphereRadius * 2, (j - clothHeight / 2) * sphereRadius * 2, 0),
+              shape: new CANNON.Sphere(sphereRadius)
+            });
+
+            // Make the left edge of the cloth static (fixed in place)
+            if (i == 0) {
+              sphere.type = CANNON.Body.KINEMATIC;
+            }
+            cloth.push(sphere);
+            world.addBody(sphere);
+
+            // Connect to neighbors
+            if (i > 0) {
+              const leftSphere = cloth[j + (i - 1) * clothHeight];
+              const spring = new CANNON.Spring(sphere, leftSphere, {
+                stiffness: springConstant,
+                damping: dampingConstant,
+                restLength: sphereRadius * 2
+              });
+              springs.push(spring);
+              const constraint = new CANNON.PointToPointConstraint(sphere, new CANNON.Vec3(-sphereRadius, 0, 0), leftSphere, new CANNON.Vec3(sphereRadius, 0, 0));
+              world.addConstraint(constraint);
+            }
+            if (j > 0) {
+              const topSphere = cloth[j - 1 + i * clothHeight];
+              const spring = new CANNON.Spring(sphere, topSphere, {
+                stiffness: springConstant,
+                damping: dampingConstant,
+                restLength: sphereRadius * 2
+              });
+              springs.push(spring);
+              const constraint = new CANNON.PointToPointConstraint(sphere, new CANNON.Vec3(0, -sphereRadius, 0), topSphere, new CANNON.Vec3(0, sphereRadius, 0));
+              world.addConstraint(constraint);
+            }
+          }
+        }
+
+
+        // Create the Three.js mesh for the cloth
+        const clothMesh = new THREE.Group();
+        for (let i = 0; i < cloth.length; i++) {
+          const sphere = cloth[i];
+          const mesh = new THREE.Mesh(new THREE.SphereGeometry(sphereRadius, 16, 16), new THREE.MeshStandardMaterial({ color: 0x00ff00 }));
+          mesh.position.copy(sphere.position);
+          clothMesh.add(mesh);
+        }
+        scene.add(clothMesh);
+
+        // Create the Three.js mesh for the ground
+        const cube = new THREE.Mesh(new THREE.BoxGeometry(30, 1, 30), new THREE.MeshStandardMaterial({ color: 0xf0f0f0 }));
+        cube.position.set(0, -5, 0);
+        scene.add(cube);
+
+        // Animate the simulation
+        const dt = 1 / 60;
+        let time = 0;
+        let lastTime = performance.now();
+        let fps = 0;
+        const color = new THREE.Color();
+        function animate() {
+          requestAnimationFrame(animate);
+          time += dt;
+          world.step(dt);
+          clothMesh.children.forEach((mesh, i) => {
+            mesh.position.copy(cloth[i].position);
+
+            // Set the color of the mesh based on its velocity
+            const hue = .66 - cloth[i].velocity.length() / 10;
+            color.setHSL(hue, 1, .5);
+            mesh.material = new THREE.MeshStandardMaterial({ color: color });
+          });
+          renderer.render(scene, camera);
+
+          // Time logic
+          const now = performance.now();
+          const delta = now - lastTime;
+          fps = 1000 / delta;
+          lastTime = now;
+
+          // Show it in console (or on screen)
+          fpsValue.textContent = Math.round(fps);
+        }
+
+        world.addEventListener("postStep",function(event){
+            // springs.forEach((spring) => {
+            //   spring.applyForce();
+            // });
+            // Add wind force to each sphere
+            cloth.forEach((sphere) => {
+              if (sphere.type == CANNON.Body.KINEMATIC) {
+                sphere.velocity.set(0, 0, 0);
+              }
+              else {
+                sphere.applyForce(new CANNON.Vec3(.5, 0, Math.sin((sphere.position.y * 3 + time) * sliderWind.value) * .3).scale(sliderWind.value));
+              }
+            });
+        });
+
+        animate();
+    </script>
+</body>
+</html>

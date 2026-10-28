@@ -13,5 +13,14 @@ export default defineConfig({
 			remarkPlugins: [remarkMath],
 			rehypePlugins: [rehypeKatex],
 		}),
+		shikiConfig: {
+			themes: {
+				light: 'github-light',
+				dark: 'github-dark',
+			},
+		},
 	},
+	// Astro compresses html by default, can remove this later
+	// Non-compressed is only used to inspect build files
+	compressHTML: false,
 });

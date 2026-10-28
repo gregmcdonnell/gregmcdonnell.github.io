@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Coupled pendulums arranged in a closed loop.">
+    <meta name="date" content="2025-06">
+    <title>Coupled Pendulums - Circular</title>
+    
+    <!-- Basic styling -->
+    <style>
+        body { 
+          margin: 0; 
+          overflow: hidden; 
+          color: white;
+          font-family: sans-serif;
+        }
+        canvas { display: block; }
+        #info {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            color: #878787;
+            font-family: Arial, sans-serif;
+        }
+        .slider-center {
+          position: absolute;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 1;
+          text-align: center;
+        }
+
+        .slider-left {
+          position: absolute;
+          left: 10px;
+          z-index: 1;
+          text-align: left;
+        }
+    </style>
+    
+    <!-- Import map shim for browsers without native support -->
+    <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+    
+    <!-- Define all external dependencies in the import map -->
+
+    <!-- "lodash": "https://cdn.jsdelivr.net/npm/lodash@4.17.21/+esm",
+    "gsap": "https://cdn.jsdelivr.net/npm/gsap@3.12.4/+esm" -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="info">My 3D Simulation</div>
+    <!-- <div class="slider-center" style="top: 60px;">
+      <label for="slider">
+        <div>Rotation Angle:</div>
+        <input type="range" id="sliderAngle" min="-6.28" max="6.28" value="0" step=".01" style="width: 50vw;">
+      </label>
+    </div> -->
+    <div class="range-group slider-left" style="top: 100px;">
+      <label for="slider">
+        <div>Spring Constant: <span>0</span></div>
+        <input type="range" id="sliderSpring" min="1" max="10000" value="1" step="1" style="width: 160px;">
+      </label>
+    </div>
+    <div class="range-group slider-left" style="top: 140px;">
+      <label for="slider">
+        <div>Damping: <span>0</span></div>
+        <input type="range" id="sliderDamping" min="0" max="10" value="0" step=".01" style="width: 160px;">
+      </label>
+    </div>
+    
+    <script type="module">
+        // Import dependencies
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+      
+        
+        // 1. Create scene, camera, and renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+        
+        // 2. Add camera controls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        camera.position.set(0, 3, 8);
+        controls.update();
+        
+        // 3. Add lights
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(1, 1, 1);
+        scene.add(directionalLight);
+        
+        // Simulation variables
+        const pendulumCount = 200;
+        const pendulumSpacing = .1;
+        const pendulumLength = 1;
+        const dt = .01;
+
+        let pendulums = [];
+        let quads = [];
+        let angles = new Array(pendulumCount).fill(0);
+        let angularVelocities = new Array(pendulumCount).fill(0);
+        let torques = new Array(pendulumCount).fill(0);
+
+        let raycaster = new THREE.Raycaster();
+        let mouse = new THREE.Vector2();
+        let lastMouse = new THREE.Vector2();
+        let highlightedMesh = null;
+        let selectedMesh = null;
+        let graphHorizontal = true;
+
+
+        // const sliderAngle = document.getElementById('sliderAngle');
+        // sliderAngle.value = 0;
+        const sliderSpring = document.getElementById('sliderSpring');
+        sliderSpring.value = 2000;
+        const sliderDamping = document.getElementById('sliderDamping');
+        sliderDamping.value = 1;
+        
+        // Debug Meshes
+        const debugMesh = new THREE.Mesh(new THREE.SphereGeometry(.1, 32, 32), new THREE.MeshStandardMaterial({ color: 0x0000ff }));
+        debugMesh.visible = false;
+        scene.add(debugMesh);
+
+        // Create pendulums
+        const massWidth = .06;
+        for (let i = 0; i < pendulumCount; i++) {
+            const pendulum = new THREE.Group();
+            // const mass = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), new THREE.MeshStandardMaterial({ color: 0x00ff00 }));
+            const mass = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, massWidth, 32), new THREE.MeshStandardMaterial({ color: 0x00ff00 }));
+            const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, pendulumLength, 32), new THREE.MeshStandardMaterial({ color: 0x878787 }));
+            
+            rod.position.y = -pendulumLength / 2;
+            mass.position.y = -pendulumLength;
+            mass.rotation.x = Math.PI / 2;
+            mass.userData.selectable = true;
+            mass.userData.index = i;
+            mass.userData.targetAngle = 0;
+            pendulum.add(rod);
+            pendulum.add(mass);
+            // position the pendulum in a circle
+            // pendulum.position.z = -i * pendulumSpacing + 3;
+            pendulum.position.x = Math.cos(i * 2 * Math.PI / pendulumCount)* 5;
+            pendulum.position.z = Math.sin(i * 2 * Math.PI / pendulumCount)* 5;
+            pendulum.rotation.y =  -i * 2 * Math.PI / pendulumCount;
+            pendulums.push(pendulum);
+            scene.add(pendulum);
+
+            const material = new THREE.MeshBasicMaterial({ color: 0xff9999, transparent: true, opacity: 0.3, side: THREE.DoubleSide });
+            const quad = new THREE.Mesh(new THREE.PlaneGeometry(.1, 1), material);
+            quad.position.copy(pendulum.position);
+            quad.rotation.copy(pendulum.rotation);
+            quad.rotation.y += Math.PI / 2;
+            quad.scale.y = 0;
+            quad.position.y = 0;
+            quads.push(quad);
+            scene.add(quad);
+        }
+
+        // Animate the scene, this is the main update loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            let springConstant = sliderSpring.value;
+            let damping = sliderDamping.value;
+
+            // Apply torques
+            // I did not specify that there was gravity so no need to include it here, but it would be trivial to add
+            for (let i = 0; i < pendulumCount; i++) {
+              // Calculate torque between pendulums
+              let iBefore = (i - 1);
+              if (iBefore < 0) {
+                iBefore = pendulumCount - 1;
+              }
+              let deltaAngle = angles[i] - angles[iBefore];
+              let deltaAngVel = angularVelocities[i] - angularVelocities[iBefore];
+              let torque = springConstant * deltaAngle + damping * deltaAngVel;
+              // We can assume all pendulums have the same rotational inertia = 1
+              torques[i] -= torque;
+              torques[iBefore] += torque;
+            }
+
+            // Update angles with simple euler integration
+            for (let i = 0; i < pendulumCount; i++) {
+              if (selectedMesh && selectedMesh.userData.index === i) {
+                angularVelocities[i] = 0;
+                angles[i] = lerp(angles[i], selectedMesh.userData.targetAngle, .1);
+              } else {
+                angularVelocities[i] += torques[i] * dt;
+                angles[i] += angularVelocities[i] * dt;
+              }
+              torques[i] = 0;
+              const angle = angles[i];
+              pendulums[i].rotation.z = angle;
+              quads[i].scale.y = angle;
+              quads[i].position.y = angle / 2;
+            }
+            // Set the angle of the first to the user's targeted angle
+            // angles[0] = sliderAngle.value;
+            // pendulums[0].rotation.z = angles[0]
+            // angularVelocities[0] = 0;
+
+            controls.update();
+            renderer.render(scene, camera);
+            if (!isMouseDown) {
+              debugMesh.visible = false;
+            }
+        }
+
+        function resetPendulums()
+        {
+          for (let i = 0; i < pendulumCount; i++) {
+            angularVelocities[i] = 0;
+            angles[i] = 0;
+            torques[i] = 0;
+            pendulums[i].rotation.z = 0;
+          }
+          // sliderAngle.value = 0;
+        }
+
+        document.addEventListener('keydown', function(event) {
+          if (event.key === 'r') {
+            resetPendulums();
+          }
+        });
+        
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        function lerp(start, end, t) {
+          return (1 - t) * start + t * end
+        }
+        
+
+        document.querySelectorAll('.range-group').forEach(group => {
+          const input = group.querySelector('input[type="range"]');
+          const span = group.querySelector('span');
+          // Set initial value
+          span.textContent = input.value;
+          // Update span on input change
+          input.addEventListener('input', () => {
+            span.textContent = input.value;
+          });
+        });
+        
+        function intersectsFiltered(mouse) {
+            raycaster.setFromCamera(mouse, camera);
+            return raycaster.intersectObjects(scene.children, true).filter(intersect => intersect.object.userData.selectable);
+        }
+
+        function onMouseMove(event) {
+            lastMouse = mouse.clone();
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            const intersects = intersectsFiltered(mouse);
+
+            if (highlightedMesh) {
+                // Reset previous highlight
+                highlightedMesh.material.emissive.setHex(0x000000);
+                highlightedMesh = null;
+            }
+
+            if (intersects.length > 0) {
+                highlightedMesh = intersects[0].object;
+                highlightedMesh.material.emissive.setHex(0x333333); // Highlight color
+            }
+        }
+        let isMouseDown = false;
+        function mouseOrTouchDown(event) {
+          isMouseDown = true;
+          const intersects = intersectsFiltered(mouse);
+
+          if (intersects.length > 0) {
+              debugMesh.visible = true;
+              debugMesh.position.copy(intersects[0].point);
+              selectedMesh = intersects[0].object;
+              selectedMesh.userData.drag = 0;
+              selectedMesh.userData.targetAngle = angles[selectedMesh.userData.index];
+              controls.enabled = false;
+              console.log('Selected:', selectedMesh);
+              selectedMesh.material.color.setHex(0xff0000); // Change color on selection
+          }
+        }
+        window.addEventListener('mousedown', mouseOrTouchDown);
+        window.addEventListener('touchstart', mouseOrTouchDown);
+
+        window.addEventListener('mouseup', (event) => {
+          isMouseDown = false;
+          controls.enabled = true;
+          if (selectedMesh) {
+            selectedMesh.material.color.setHex(0x00ff00); // Change color back on deselection
+            selectedMesh = null;
+          }
+        });
+
+        function closestAngle(baseAngle, targetAngle) {
+          const TWO_PI = Math.PI * 2;
+          // Step 1: Bring baseAngle into same "rotation range" as targetAngle
+          let k = Math.round((targetAngle - baseAngle) / TWO_PI);
+          return baseAngle + k * TWO_PI;
+        }
+
+        function signedAngle3D(v1, v2, normal) {
+          const angle = v1.angleTo(v2); // Always positive
+          const cross = new THREE.Vector3().crossVectors(v1, v2);
+          const sign = Math.sign(cross.dot(normal));
+          return angle * sign; // Signed angle in radians
+        }
+
+        window.addEventListener('mousemove', (event) => {
+          if (isMouseDown) {
+            // Handle dragging here
+            if (selectedMesh) {
+              let i = selectedMesh.userData.index;
+              const massWorldPos = new THREE.Vector3();
+              selectedMesh.getWorldPosition(massWorldPos);
+              const worldUp = new THREE.Vector3(0, 0, -1); // Local up vector (cyclinder is rotated)
+              const worldForward = new THREE.Vector3(0, 1, 0); // Local forward vector
+              worldUp.applyQuaternion(selectedMesh.getWorldQuaternion(new THREE.Quaternion()));
+              worldForward.applyQuaternion(selectedMesh.getWorldQuaternion(new THREE.Quaternion()));
+              const anchorWorldPos = massWorldPos.clone().add(worldUp);
+
+              raycaster.setFromCamera(mouse, camera);
+
+              // Find intersection of ray with the plane
+              const intersectionPoint = new THREE.Vector3();
+              const plane = new THREE.Plane(worldForward, 0);
+              const dot = worldForward.dot(raycaster.ray.direction);
+              raycaster.ray.intersectPlane(plane, intersectionPoint);
+
+              if (intersectionPoint) {
+                debugMesh.position.copy(intersectionPoint);
+                intersectionPoint.sub(anchorWorldPos);
+                let angle = -signedAngle3D(intersectionPoint, new THREE.Vector3(0, -1, 0), worldForward);
+                // let angle = Math.atan2(intersectionPoint.x, -intersectionPoint.y);
+                // if (worldForward.dot(raycaster.ray.direction) > 0) {
+                //   angle = -angle;
+                // }
+                // console.log('dot', Math.sign(dot), 'angle', Math.sign(angle));
+                // angle = -Math.sign(dot) * Math.abs(angle);
+                // angle = dot * angle;
+                console.log('Angle', angle);
+                selectedMesh.userData.targetAngle = closestAngle(angle, angles[selectedMesh.userData.index]);
+              }
+              // const anchorScreenPos = anchorWorldPos.project(camera);
+              let drag = (mouse.clone().sub(lastMouse)).multiplyScalar(8);
+            } 
+          }
+        });
+
+        window.addEventListener('mousemove', onMouseMove);
+        // window.addEventListener('click', onClick);
+
+        animate();
+    </script>
+</body>
+</html>

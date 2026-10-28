@@ -1,0 +1,6 @@
+{
+  "title": "GPU Particle Simulation",
+  "date": "2025-09",
+  "description": "Simulating non-interacting particles entirely on the GPU.",
+  "featured": true
+}

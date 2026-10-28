@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Branching Trees</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      color: white;
+      font-family: sans-serif;
+    }
+
+    canvas {
+      display: block;
+    }
+    #treeOverlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none; /* allows clicks to pass through */
+    }
+
+    #info {
+      position: absolute;
+      top: 10px;
+      width: 100%;
+      text-align: center;
+      color: #ffffff;
+      font-family: Arial, sans-serif;
+      font-size: 20px;
+    }
+  </style>
+
+  <!-- Import map shim for browsers without native support -->
+  <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+
+  <!-- Define all external dependencies in the import map -->
+  <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+                "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"
+                
+            }
+        }
+    </script>
+  <script src="https://cdn.jsdelivr.net/npm/noisejs@2.1.0/index.min.js"></script>
+</head>
+
+<body>
+  <div id="info"></div>
+  <svg id="treeOverlay" width="100%" height="100%"></svg>
+
+  <script type="module">
+    
+    // Import dependencies
+    import * as THREE from 'three';
+    import * as CANNON from 'cannon-es';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.20/+esm';
+
+    class Node {
+      constructor(i) {
+        this.index = i;
+        this.terminal = false;
+        this.children = [];
+        this.x = 0;
+      }
+    }
+
+    class Tree {
+      constructor() {
+        this.root = new Node(0);
+      }
+    }
+
+    
+    var noise = new Noise(Math.random());
+
+    // Scene setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 5, 10);
+    camera.lookAt(0, 0, 0);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x111111);
+    document.body.appendChild(renderer.domElement);
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.update();
+    const comPosition = new THREE.Vector3();
+
+    // Lights
+    // const ambientLight = new THREE.AmbientLight(0x404040);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 2);
+    scene.add(ambientLight);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 5);
+    directionalLight.position.set(1, 1, 1).normalize();
+    scene.add(directionalLight);
+
+    // Physics world
+    const world = new CANNON.World();
+    world.gravity.set(0, 0, 0);
+    world.solver.iterations = 10;
+
+
+    const gui = new GUI();
+    const params = {
+      showTree: true,
+      outwardForce: 0.25,
+      drag: 0.3,
+      connectionForce: 1,
+      connectionStrength: 10,
+      sphereRadius: 1,
+      maxLevels: 4,
+      maxBranches: 3,
+      randomBranching: false
+
+    }
+    const svg = document.getElementById("treeOverlay");
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    svg.appendChild(g);
+
+    gui.add(params, 'showTree').onChange(function(value) {
+      if (value) {
+        svg.style.display = "block";
+      } else {
+        svg.style.display = "none";
+      }
+    });
+    
+    // gui.add(params, 'gravity', 0, 20).onChange(function(value) {
+    //   world.gravity.set(0, -value, 0);
+    // });
+    gui.add(params, 'outwardForce', 0, 10);
+    gui.add(params, 'drag', 0, 0.99).onChange(function(value) {
+      for (let body of nodeBodies) {
+        body.linearDamping = value;
+      }
+    });
+    gui.add(params, 'connectionForce', {Constant: 0, Spring: 1});
+    gui.add(params, 'connectionStrength', 0, 100);
+    gui.add(ambientLight, 'intensity', 0, 10).name('ambientLight');
+    gui.add(directionalLight, 'intensity', 0, 50).name('directionalLight');
+    params.branchesPerLevel = Array.from({length: 20}, (_, i) => 3);
+    gui.add(params, 'randomBranching');
+    const maxLevelsControl = gui.add(params, 'maxLevels', 1, 10, 1)
+    const branchesFolder = gui.addFolder('Max Branches per Level');
+    // create an array of numbers from 0 to params.maxLevels
+    
+    for (let i = 0; i < params.branchesPerLevel.length; i++) {
+      const control = branchesFolder.add(params.branchesPerLevel, i, 1, 12, 1).name(`Branches ${i + 1}`);
+      if (i >= params.maxLevels) {
+        control.hide();
+      }
+    }
+    maxLevelsControl.onFinishChange(function(value) {
+      for (let i = 0; i < params.branchesPerLevel.length; i++) {
+        const control = branchesFolder.controllers[i];
+        if (i >= params.maxLevels) {
+          control.hide();
+        }
+        else {
+          control.show();
+        }
+      }
+    });
+
+    const sphereGeometry = new THREE.SphereGeometry(.5, 16, 16);
+    const standardMaterial = new THREE.MeshStandardMaterial({
+      color: 0x999999,
+      roughness: 0.5
+    });
+    const basicMaterial = new THREE.MeshBasicMaterial();
+
+
+    const nodeConnections = [];
+    const nodeBodies = [];
+
+    
+    function addNodeBody(position, radius, level) {
+      const body = new CANNON.Body({
+        mass: 1,
+        position: position,
+        shape: new CANNON.Sphere(radius)
+      });
+      body.level = level;
+      nodeBodies.push(body);
+      world.addBody(body);
+    }
+
+
+    const maxNodes = 1000;
+    const maxLines = maxNodes - 1;
+    const instancedMesh = new THREE.InstancedMesh(sphereGeometry, standardMaterial, maxNodes);
+    scene.add(instancedMesh);
+
+    // Add instance color attribute
+    // const nodeColors = new Float32Array(maxNodes * 3); // r, g, b for each instance
+    // instancedMesh.instanceColor = new THREE.InstancedBufferAttribute(nodeColors, 3);
+
+    const linePositions32 = new Float32Array(maxLines * 6);
+    const lineGeometry = new THREE.BufferGeometry();
+    lineGeometry.setAttribute('position', new THREE.BufferAttribute(linePositions32, 3));
+    const lineSegments = new THREE.LineSegments(lineGeometry, new THREE.LineBasicMaterial());
+    scene.add(lineSegments);
+
+
+    function generateNodes(parentNode, levels) {
+      if (nodeBodies.length >= maxNodes) {
+        console.log("maxNodes reached outer");
+        return;
+      }
+      if (levels >= params.maxLevels) {
+        return;
+      }
+      // const childrenCount = Math.floor(Math.random() * (numChildrenAtLevel(levels) + 1));
+      const maxChildren = numChildrenAtLevel(levels);
+      const childrenCount = params.randomBranching ? Math.floor(Math.random() * (maxChildren + 1)) : maxChildren;
+      if (childrenCount === 0) {
+        parentNode.terminal = true;
+        return;
+      }
+      // create an array of numbers centered on 0 with length childrenCount
+      const numbers = Array.from({ length: childrenCount }, (_, i) => i - (childrenCount - 1) / 2);
+      // shuffle the array
+      numbers.sort(() => Math.random() - 0.5);
+      const childSpread = 2 * (levels+1);
+      levels += 1;
+      for (let i = 0; i < childrenCount; i++) {
+        if (nodeBodies.length >= maxNodes) {
+          console.log("inner");
+          return;
+        }
+        const childNode = new Node(nodeBodies.length);
+        const childPosition = nodeBodies[parentNode.index].position.clone().vadd(
+          new CANNON.Vec3((Math.random() - .5) * childSpread, (Math.random() - .5) * childSpread, (Math.random() - .5) * childSpread));
+          // new CANNON.Vec3(numbers[i] * childSpread, -2, (Math.random() - .5) * 2));
+
+        addNodeBody(childPosition, params.sphereRadius, levels);
+
+        nodeConnections.push([parentNode.index, childNode.index]);
+        parentNode.children.push(childNode);
+        // let nextChildCount = Math.floor(Math.random() * (params.maxBranches + 1));
+        // let nextChildCount = Math.floor(Math.random() * (numChildrenAtLevel(levels) + 1));
+        // if (levels < 4) {
+        //   nextChildCount = 1;
+        // }
+        // const nextChildCount = 3;
+        generateNodes(childNode, levels);
+      }
+    }
+
+    function numChildrenAtLevel(level) {
+      // return (Math.sin(level) + 1) / 2 * params.maxLevels + 1;
+      return params.branchesPerLevel[level];
+    }
+
+    let nextX = 0;
+
+    const hSpacing = 4;
+    const vSpacing = 20;
+    const radius = 1.5;
+
+    function reInitializeTree() {
+    // const tree = new Tree();
+      for (let body of nodeBodies) {
+        world.removeBody(body);
+      }
+      nodeBodies.length = 0;
+      nodeConnections.length = 0;
+      const rootNode = new Node(0);
+      addNodeBody(new CANNON.Vec3(0, 0, 0), params.sphereRadius, 0);
+
+      const rootChildCount = Math.ceil(Math.random() * (params.maxBranches));
+      generateNodes(rootNode, 0);
+      document.getElementById('info').innerHTML = "Nodes: " + nodeBodies.length;
+      updateNodePositions();
+      controls.target.copy(comPosition);
+      controls.update();
+
+      instancedMesh.count = nodeBodies.length;
+      lineGeometry.setDrawRange(0, nodeConnections.length * 2);
+
+
+      for (let i = 0; i < nodeBodies.length; i++) {
+        // const color = new THREE.Color(Math.random(), Math.random(), Math.random());
+        const color = new THREE.Color(0, 0, 0);
+        if (nodeBodies[i].level > 0) {
+          color.setHSL((nodeBodies[i].level - 1) / (params.maxLevels), 1, 0.5);
+        }
+        // nodeColors[i * 3] = color.r;
+        // nodeColors[i * 3 + 1] = color.g;
+        // nodeColors[i * 3 + 2] = color.b;
+        instancedMesh.setColorAt(i, color);
+      }
+
+      instancedMesh.instanceColor.needsUpdate = true;
+      
+      world.time = 0;
+
+      nextX = 0;
+      assignX(rootNode);
+      g.innerHTML = "";
+      g.setAttribute("transform", "scale(1, 1)");
+      drawSVGNode(rootNode);
+      const maxWidth = window.innerWidth - 20;
+      if (nextX * hSpacing > maxWidth) {
+        g.setAttribute("transform", `scale(${maxWidth / (nextX * hSpacing)}, 1)`);
+      }
+    }
+
+    function assignX(node) {
+      if (node.children.length === 0) {
+        node.x = nextX++;
+      } else {
+        for (const child of node.children) {
+          assignX(child);
+        }
+        const left = node.children[0].x;
+        const right = node.children[node.children.length - 1].x;
+        node.x = (left + right) / 2;
+      }
+    }
+
+
+    const padding = 10;
+    function drawSVGNode(node, depth = 0) {
+      const x = node.x * hSpacing + padding;
+      const y = depth * vSpacing + padding;
+
+      for (const child of node.children) {
+        const childX = child.x * hSpacing + padding;
+        const childY = (depth + 1) * vSpacing + padding;
+
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", x);
+        line.setAttribute("y1", y);
+        line.setAttribute("x2", childX);
+        line.setAttribute("y2", childY);
+        line.setAttribute("stroke", "#ffffff");
+        line.setAttribute("stroke-width", "1.3");
+        g.appendChild(line);
+
+        drawSVGNode(child, depth + 1);
+      }
+
+      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      circle.setAttribute("cx", x);
+      circle.setAttribute("cy", y);
+      circle.setAttribute("r", radius);
+      circle.setAttribute("fill", "#fff");
+      // circle.setAttribute("stroke", "#000");
+      g.appendChild(circle);
+    }
+
+
+
+    function updateNodePositions() {
+      const lastComPosition = comPosition.clone();
+      comPosition.set(0, 0, 0);
+      const matrixArray = instancedMesh.instanceMatrix.array;
+      // const dummy = new THREE.Object3D();
+      for (let i = 0; i < nodeBodies.length; i++) {
+        const body = nodeBodies[i];
+        const pos = body.position;
+        comPosition.add(pos);
+        const offset = i * 16;
+        matrixArray[offset + 12] = pos.x; // set translation
+        matrixArray[offset + 13] = pos.y;
+        matrixArray[offset + 14] = pos.z;
+
+        // dummy.position.copy(pos);
+        // dummy.updateMatrix();
+        // dummy.matrix.toArray(matrixArray, i * 16);
+
+        // instancedMesh.setMatrixAt(i, dummy.matrix);
+        const fromCenter = pos.clone().vsub(lastComPosition);
+        const mag = Math.max(0.001, fromCenter.length());
+        body.applyForce(fromCenter.scale(params.outwardForce / mag), new CANNON.Vec3(0, 0, 0));
+      }
+      comPosition.divideScalar(nodeBodies.length);
+      // document.getElementById('info').innerHTML = "\ncomPosition: " + comPosition.x.toFixed(5) + " " + comPosition.y.toFixed(5) + " " + comPosition.z.toFixed(5);
+      instancedMesh.instanceMatrix.needsUpdate = true;
+    }
+
+    function updateLinePositions() {
+      const forceType = params.connectionForce;
+      for (let i = 0; i < nodeConnections.length; i++) {
+        const pos = nodeBodies[nodeConnections[i][0]].position;
+        const pos2 = nodeBodies[nodeConnections[i][1]].position;
+        const offset = i * 6;
+        linePositions32[offset] = pos.x;
+        linePositions32[offset + 1] = pos.y;
+        linePositions32[offset + 2] = pos.z;
+        linePositions32[offset + 3] = pos2.x;
+        linePositions32[offset + 4] = pos2.y;
+        linePositions32[offset + 5] = pos2.z;
+        const springForce = pos2.clone().vsub(pos);
+        if (forceType === 0) {
+          springForce.normalize();
+        }
+        springForce.scale(params.connectionStrength, springForce);
+        nodeBodies[nodeConnections[i][0]].applyForce(springForce, new CANNON.Vec3(0, 0, 0));
+        nodeBodies[nodeConnections[i][1]].applyForce(springForce.negate(), new CANNON.Vec3(0, 0, 0));
+      }
+      lineGeometry.attributes.position.needsUpdate = true;
+    }
+
+    function resizeSpheres(newRadius)
+    {
+      world.time = 0;
+      for (let sphereBody of nodeBodies) {
+        // 1. Remove all shapes
+        sphereBody.shapes = [];
+        sphereBody.shapeOffsets = [];
+        sphereBody.shapeOrientations = [];
+
+        // 2. Add new shape with the new radius
+        const newShape = new CANNON.Sphere(newRadius);
+        sphereBody.addShape(newShape);
+
+        // 3. (Optional) update AABB and bounding radius
+        sphereBody.updateMassProperties();
+        sphereBody.updateBoundingRadius();
+        sphereBody.aabbNeedsUpdate = true;
+      }
+    }
+
+
+    reInitializeTree();
+    params.reInitializeTree = reInitializeTree;
+    gui.add(params, 'sphereRadius', 0, 10).onFinishChange(function(value) {
+      resizeSpheres(value);
+    });
+    gui.add(params, 'reInitializeTree');
+
+    // Main update loop
+    function update() {
+      updateNodePositions();
+      updateLinePositions();
+
+      if (world.time < .2) {
+        for (let body of nodeBodies) {
+          body.velocity.set(0, 0, 0);
+        }
+      }
+
+      // center orbit controls on comPosition
+      controls.target.copy(comPosition);
+      controls.update();
+
+      // Step physics
+      world.step(1 / 60);
+
+    }
+
+    // Animation loop
+    function animate() {
+
+      update();
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+
+
+    function formatName(key) {
+      return key.replace(/([A-Z])/g, ' $1') // insert space before caps
+                .replace(/^./, str => str.toUpperCase()); // capitalize first letter
+    }
+
+    function renameAllControllers(gui) {
+      // Rename controllers at the current GUI level
+      gui.controllers.forEach(controller => {
+        controller.name(formatName(controller._name));
+      });
+
+      // Recursively rename controllers in each folder
+      gui.folders.forEach(subFolder => {
+        renameAllControllers(subFolder);
+      });
+    }
+    renameAllControllers(gui);
+    
+
+    animate();
+  </script>
+</body>
+
+</html>

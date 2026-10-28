@@ -1,0 +1,28 @@
+---
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+	project: CollectionEntry<'projects'>;
+	// Position in the list, used to stagger the fade-in animation.
+	index?: number;
+}
+
+const { project, index = 0 } = Astro.props;
+const { title, date, description, tags } = project.data;
+---
+
+<a
+	class={`project-card stagger-${Math.min(index + 1, 6)}`}
+	href={`/projects/${project.id}`}
+	data-tags={tags.join(',')}
+>
+	<div>
+		<div class="project-meta">
+			<span class="project-date">{date.toISOString().slice(0, 7)}</span>
+			{tags.map((tag) => <span class="tag">{tag}</span>)}
+		</div>
+		<div class="project-title">{title}</div>
+		<div class="project-desc">{description}</div>
+	</div>
+	<span class="arrow">↗</span>
+</a>
